@@ -13,7 +13,9 @@ if (!defined('ABSPATH')) {
 function qb_get_quiz_display($quiz, $questions, $options) {
     $output = '<div class="quiz-container">';
     $output .= '<h2>' . esc_html($quiz->title) . '</h2>';
-    $output .= '<form method="post" class="quiz-form" action="">';
+    $output .= '<form method="post" class="quiz-form">';
+    $output .= wp_nonce_field('qb_quiz_submission', 'qb_quiz_nonce', true, false);
+    $output .= '<input type="hidden" name="action" value="qb_handle_quiz_submission">';
     $output .= '<input type="hidden" name="quiz_id" value="' . esc_attr($quiz->id) . '">';
 
     foreach ($questions as $question) {

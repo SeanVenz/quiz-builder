@@ -98,7 +98,18 @@ function qb_generate_random_id() {
 }
 
 function qb_handle_quiz_submission() {
+    // Debug logging
+    error_log('Quiz submission handler started');
+    error_log('POST data: ' . print_r($_POST, true));
+
+    // Verify nonce
+    if (!isset($_POST['qb_quiz_nonce']) || !wp_verify_nonce($_POST['qb_quiz_nonce'], 'qb_quiz_submission')) {
+        error_log('Invalid nonce');
+        return;
+    }
+
     if (!isset($_POST['submit_quiz']) || !isset($_POST['quiz_id'])) {
+        error_log('Missing required POST data: submit_quiz or quiz_id');
         return;
     }
 
@@ -109,8 +120,11 @@ function qb_handle_quiz_submission() {
     $options_table = $wpdb->prefix . 'qb_options';
     $attempts_table = $wpdb->prefix . 'qb_attempts';
 
+    error_log('Processing quiz ID: ' . $quiz_id);
+
     $quiz = $wpdb->get_row($wpdb->prepare("SELECT * FROM $quiz_table WHERE id = %d", $quiz_id));
     if (!$quiz) {
+        error_log('Quiz not found with ID: ' . $quiz_id);
         return;
     }
 
@@ -147,16 +161,31 @@ function qb_handle_quiz_submission() {
 
     // Generate random ID
     $random_id = qb_generate_random_id();
+    error_log('Generated random ID: ' . $random_id);
+
+    // Get user ID, set to NULL if not logged in
+    $user_id = get_current_user_id();
+    if (!$user_id) {
+        $user_id = null;
+    }
 
     // Store the attempt
-    $wpdb->insert($attempts_table, array(
+    $insert_result = $wpdb->insert($attempts_table, array(
         'random_id' => $random_id,
         'quiz_id' => $quiz_id,
-        'user_id' => get_current_user_id(),
+        'user_id' => $user_id,
         'score' => $score,
         'total_points' => $total_possible_points,
-        'answers' => json_encode($answers)
+        'answers' => json_encode($answers),
+        'created_at' => current_time('mysql')
     ));
+
+    if ($insert_result === false) {
+        error_log('Failed to insert quiz attempt: ' . $wpdb->last_error);
+        return;
+    }
+
+    error_log('Successfully stored quiz attempt with random ID: ' . $random_id);
 
     // Get the results page URL
     $results_page = get_page_by_path('quiz-results');
@@ -167,9 +196,30 @@ function qb_handle_quiz_submission() {
         $redirect_url = home_url('/quiz-results/' . $random_id . '/');
     }
 
-    wp_redirect($redirect_url);
-    exit;
+    error_log('Redirecting to: ' . $redirect_url);
+    
+    // Clear any output buffers
+    while (ob_get_level()) {
+        ob_end_clean();
+    }
+    
+    // Ensure no headers are sent
+    if (!headers_sent()) {
+        wp_safe_redirect($redirect_url);
+        exit;
+    } else {
+        error_log('Headers already sent, using JavaScript redirect');
+        echo '<script>window.location.href="' . esc_url($redirect_url) . '";</script>';
+        exit;
+    }
 }
+
+// Register the action for both logged-in and non-logged-in users
+add_action('template_redirect', function() {
+    if (isset($_POST['action']) && $_POST['action'] === 'qb_handle_quiz_submission') {
+        qb_handle_quiz_submission();
+    }
+});
 
 /**
  * Display quiz results
@@ -207,8 +257,8 @@ function qb_register_shortcodes() {
 }
 add_action('init', 'qb_register_shortcodes', 10);
 
-// Add form submission handler
-add_action('template_redirect', 'qb_handle_quiz_submission');
+// Add form submission handler with higher priority
+add_action('template_redirect', 'qb_handle_quiz_submission', 1);
 
 // Add admin menu
 add_action('admin_menu', 'qb_add_admin_menu');
@@ -230,18 +280,33 @@ function qb_get_attempt_details() {
     $attempts_table = $wpdb->prefix . 'qb_attempts';
     $questions_table = $wpdb->prefix . 'qb_questions';
     $options_table = $wpdb->prefix . 'qb_options';
+    $quizzes_table = $wpdb->prefix . 'qb_quizzes';
+    $users_table = $wpdb->users;
 
     $attempt = $wpdb->get_row($wpdb->prepare("SELECT * FROM $attempts_table WHERE random_id = %s", $attempt_id));
     if (!$attempt) {
         wp_send_json_error('Attempt not found');
     }
 
+    // Get quiz and user details
+    $quiz = $wpdb->get_row($wpdb->prepare("SELECT * FROM $quizzes_table WHERE id = %d", $attempt->quiz_id));
+    $user = $attempt->user_id ? $wpdb->get_row($wpdb->prepare("SELECT display_name FROM $users_table WHERE ID = %d", $attempt->user_id)) : null;
+
     $answers = json_decode($attempt->answers, true);
-    $output = '<h2>Quiz Attempt Details</h2>';
+    
+    $output = '<div class="attempt-details">';
+    $output .= '<h2>Quiz Attempt Details</h2>';
+    
+    // General information
+    $output .= '<div class="attempt-info">';
+    $output .= '<p><strong>Quiz:</strong> ' . esc_html($quiz->title) . '</p>';
+    $output .= '<p><strong>User:</strong> ' . esc_html($user ? $user->display_name : 'Guest') . '</p>';
     $output .= '<p><strong>Score:</strong> ' . esc_html($attempt->score) . '/' . esc_html($attempt->total_points) . ' (' . round(($attempt->score / $attempt->total_points) * 100) . '%)</p>';
     $output .= '<p><strong>Date:</strong> ' . esc_html($attempt->created_at) . '</p>';
+    $output .= '</div>';
     
-    $output .= '<h3>Answers:</h3>';
+    // Answers table
+    $output .= '<h3>Answers</h3>';
     $output .= '<table class="widefat fixed striped">';
     $output .= '<thead><tr><th>Question</th><th>Answer</th><th>Points</th></tr></thead>';
     $output .= '<tbody>';
@@ -260,7 +325,8 @@ function qb_get_attempt_details() {
     }
 
     $output .= '</tbody></table>';
-    $output .= '<p><a href="#" class="button" onclick="document.getElementById(\'attempt-details-modal\').style.display=\'none\';">Close</a></p>';
+    $output .= '<p style="margin-top: 20px;"><a href="#" class="button" onclick="document.getElementById(\'attempt-details-modal\').style.display=\'none\';">Close</a></p>';
+    $output .= '</div>';
 
     wp_send_json_success(array('html' => $output));
 }
@@ -275,3 +341,49 @@ function qb_add_rewrite_rules() {
     );
 }
 add_action('init', 'qb_add_rewrite_rules');
+
+// Add AJAX handler for CSV export
+add_action('wp_ajax_qb_export_attempts_csv', 'qb_export_attempts_csv');
+function qb_export_attempts_csv() {
+    check_ajax_referer('qb_export_csv', 'nonce');
+
+    global $wpdb;
+    $attempts_table = $wpdb->prefix . 'qb_attempts';
+    $quizzes_table = $wpdb->prefix . 'qb_quizzes';
+    $users_table = $wpdb->users;
+
+    // Set headers for CSV download
+    header('Content-Type: text/csv');
+    header('Content-Disposition: attachment; filename="quiz-attempts.csv"');
+    header('Pragma: no-cache');
+    header('Expires: 0');
+
+    $output = fopen('php://output', 'w');
+    
+    // CSV headers
+    fputcsv($output, array('Attempt ID', 'Quiz Title', 'User', 'Score', 'Total Points', 'Percentage', 'Date'));
+    
+    $attempts = $wpdb->get_results("
+        SELECT a.*, q.title as quiz_title, u.display_name as user_name 
+        FROM $attempts_table a
+        LEFT JOIN $quizzes_table q ON a.quiz_id = q.id
+        LEFT JOIN $users_table u ON a.user_id = u.ID
+        ORDER BY a.created_at DESC
+    ");
+    
+    foreach ($attempts as $attempt) {
+        $percentage = round(($attempt->score / $attempt->total_points) * 100);
+        fputcsv($output, array(
+            $attempt->random_id,
+            $attempt->quiz_title,
+            $attempt->user_name ?: 'Guest',
+            $attempt->score,
+            $attempt->total_points,
+            $percentage . '%',
+            $attempt->created_at
+        ));
+    }
+    
+    fclose($output);
+    exit;
+}

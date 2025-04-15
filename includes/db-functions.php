@@ -64,7 +64,7 @@ function qb_create_attempts_table() {
         id BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
         random_id VARCHAR(32) NOT NULL,
         quiz_id BIGINT(20) UNSIGNED NOT NULL,
-        user_id BIGINT(20) UNSIGNED,
+        user_id BIGINT(20) UNSIGNED DEFAULT NULL,
         score INT NOT NULL,
         total_points INT NOT NULL,
         answers TEXT NOT NULL,

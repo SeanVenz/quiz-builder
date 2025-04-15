@@ -152,7 +152,7 @@ function qb_quiz_attempts_page() {
                             <td><?php echo esc_html(round(($attempt->score / $attempt->total_points) * 100)) . '%'; ?></td>
                             <td><?php echo esc_html($attempt->created_at); ?></td>
                             <td>
-                                <a href="#" class="view-attempt-details" data-attempt-id="<?php echo esc_attr($attempt->random_id); ?>">View Details</a>
+                                <a href="#" class="view-attempt-details" data-attempt-id="<?php echo esc_attr($attempt->id); ?>">View Details</a>
                             </td>
                         </tr>
                     <?php endforeach; ?>

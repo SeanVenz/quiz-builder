@@ -11,6 +11,9 @@ if (!defined('ABSPATH')) {
  * Display quiz results template
  */
 function qb_get_quiz_results($quiz, $score, $total_possible_points) {
+    error_log('Displaying quiz results for quiz ID: ' . $quiz->id);
+    error_log('Score: ' . $score . ' out of ' . $total_possible_points);
+
     $percentage = $total_possible_points > 0 ? round(($score / $total_possible_points) * 100) : 0;
 
     $output = '<div class="quiz-result" style="max-width: 600px; margin: 0 auto; padding: 20px; background: #f9f9f9; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">';
