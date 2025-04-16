@@ -1,6 +1,58 @@
 <?php
 if (!defined('ABSPATH')) exit;
 
+// Add the action handler for form submission
+add_action('admin_post_add_quiz', 'handle_add_quiz_submission');
+function handle_add_quiz_submission() {
+    if (!current_user_can('manage_options')) {
+        wp_die('Unauthorized');
+    }
+
+    check_admin_referer('qb_add_quiz');
+    
+    global $wpdb;
+    $title = sanitize_text_field($_POST['quiz_title']);
+    $description = sanitize_textarea_field($_POST['quiz_description']);
+    
+    if (!empty($title)) {
+        $result = $wpdb->insert($wpdb->prefix . 'qb_quizzes', [
+            'title' => $title,
+            'description' => $description,
+            'created_at' => current_time('mysql')
+        ]);
+
+        if ($result) {
+            $redirect_url = add_query_arg(
+                array(
+                    'page' => 'quiz-builder',
+                    'quiz_id' => $wpdb->insert_id,
+                    'message' => 'quiz_added'
+                ),
+                admin_url('admin.php')
+            );
+        } else {
+            $redirect_url = add_query_arg(
+                array(
+                    'page' => 'quiz-builder',
+                    'message' => 'quiz_error'
+                ),
+                admin_url('admin.php')
+            );
+        }
+    } else {
+        $redirect_url = add_query_arg(
+            array(
+                'page' => 'quiz-builder',
+                'message' => 'quiz_error'
+            ),
+            admin_url('admin.php')
+        );
+    }
+    
+    wp_safe_redirect($redirect_url);
+    exit;
+}
+
 function qb_manage_questions_page() {
     global $wpdb;
 
@@ -9,6 +61,15 @@ function qb_manage_questions_page() {
     wp_enqueue_style('jquery-ui', 'https://code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css');
 
     $quiz_id = isset($_GET['quiz_id']) ? intval($_GET['quiz_id']) : 0;
+
+    // Show messages
+    if (isset($_GET['message'])) {
+        if ($_GET['message'] === 'quiz_added') {
+            echo '<div class="notice notice-success is-dismissible"><p>Quiz added successfully!</p></div>';
+        } elseif ($_GET['message'] === 'quiz_error') {
+            echo '<div class="notice notice-error is-dismissible"><p>Error adding quiz. Please try again.</p></div>';
+        }
+    }
 
     // If no quiz ID is provided, show the quiz list
     if (!$quiz_id) {
@@ -19,7 +80,7 @@ function qb_manage_questions_page() {
             <h1>Quiz Builder</h1>
             
             <h2>Add New Quiz</h2>
-            <form method="post" class="qb-form">
+            <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" class="qb-form">
                 <?php wp_nonce_field('qb_add_quiz'); ?>
                 <input type="hidden" name="action" value="add_quiz">
                 <table class="form-table">
@@ -61,11 +122,8 @@ function qb_manage_questions_page() {
                                 <td><?php echo esc_html($quiz->title); ?></td>
                                 <td><?php echo esc_html($quiz->description); ?></td>
                                 <td>
-                                    <a href="<?php echo esc_url(add_query_arg('quiz_id', $quiz->id)); ?>" class="button">Manage Questions</a>
-                                    <a href="<?php echo esc_url(add_query_arg(array(
-                                        'page' => 'qb-quiz-settings',
-                                        'quiz_id' => $quiz->id
-                                    ))); ?>" class="button">Settings</a>
+                                    <a href="<?php echo esc_url(add_query_arg(array('page' => 'quiz-builder', 'quiz_id' => $quiz->id), admin_url('admin.php'))); ?>" class="button">Manage Questions</a>
+                                    <a href="<?php echo esc_url(add_query_arg(array('page' => 'qb-quiz-settings', 'quiz_id' => $quiz->id), admin_url('admin.php'))); ?>" class="button">Settings</a>
                                 </td>
                             </tr>
                         <?php endforeach; ?>
@@ -77,23 +135,6 @@ function qb_manage_questions_page() {
         </div>
         <?php
         return;
-    }
-
-    // Handle quiz addition
-    if (isset($_POST['action']) && $_POST['action'] === 'add_quiz') {
-        check_admin_referer('qb_add_quiz');
-        
-        $title = sanitize_text_field($_POST['quiz_title']);
-        $description = sanitize_textarea_field($_POST['quiz_description']);
-        
-        if (!empty($title)) {
-            $wpdb->insert($wpdb->prefix . 'qb_quizzes', [
-                'title' => $title,
-                'description' => $description,
-                'created_at' => current_time('mysql')
-            ]);
-            echo '<div class="updated notice"><p>Quiz added successfully!</p></div>';
-        }
     }
 
     $quiz = $wpdb->get_row($wpdb->prepare("SELECT * FROM {$wpdb->prefix}qb_quizzes WHERE id = %d", $quiz_id));
