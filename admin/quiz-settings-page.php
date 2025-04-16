@@ -66,8 +66,16 @@ function qb_quiz_settings_page() {
                 quizSelect.addEventListener('change', function() {
                     if (this.value) {
                         loadQuizSettings(this.value);
+                    } else {
+                        // Reset to defaults when no quiz is selected
+                        resetToDefaults();
                     }
                 });
+
+                function resetToDefaults() {
+                    isPaginated.checked = false;
+                    questionsPerPage.value = 1;
+                }
 
                 function loadQuizSettings(quizId) {
                     $.post(ajaxurl, {
@@ -76,21 +84,23 @@ function qb_quiz_settings_page() {
                         nonce: '<?php echo wp_create_nonce('qb_get_settings'); ?>'
                     })
                     .done(function(response) {
-                        if (response.success) {
+                        if (response.success && response.data) {
                             const settings = response.data;
-                            isPaginated.checked = settings.is_paginated;
-                            questionsPerPage.value = settings.questions_per_page;
+                            // Convert to boolean explicitly
+                            isPaginated.checked = settings.is_paginated === '1' || settings.is_paginated === 1;
+                            questionsPerPage.value = settings.questions_per_page || 1;
                         } else {
-                            // Reset to defaults
-                            isPaginated.checked = false;
-                            questionsPerPage.value = 1;
+                            resetToDefaults();
                         }
                     })
                     .fail(function() {
-                        // Reset to defaults on error
-                        isPaginated.checked = false;
-                        questionsPerPage.value = 1;
+                        resetToDefaults();
                     });
+                }
+
+                // Load settings if quiz is pre-selected (e.g., after saving)
+                if (quizSelect.value) {
+                    loadQuizSettings(quizSelect.value);
                 }
             });
             </script>
@@ -113,6 +123,7 @@ function handle_settings_save($settings_table) {
     global $wpdb;
     
     $quiz_id = intval($_POST['quiz_id']);
+    // Explicitly handle checkbox value
     $is_paginated = isset($_POST['is_paginated']) ? 1 : 0;
     $questions_per_page = max(1, intval($_POST['questions_per_page']));
     
@@ -124,7 +135,7 @@ function handle_settings_save($settings_table) {
 
     if ($existing_settings) {
         // Update existing settings
-        $wpdb->update(
+        $result = $wpdb->update(
             $settings_table,
             array(
                 'is_paginated' => $is_paginated,
@@ -134,7 +145,7 @@ function handle_settings_save($settings_table) {
         );
     } else {
         // Insert new settings
-        $wpdb->insert(
+        $result = $wpdb->insert(
             $settings_table,
             array(
                 'quiz_id' => $quiz_id,
@@ -144,12 +155,21 @@ function handle_settings_save($settings_table) {
         );
     }
 
-    add_settings_error(
-        'qb_settings',
-        'settings_updated',
-        'Settings saved successfully!',
-        'updated'
-    );
+    if ($result !== false) {
+        add_settings_error(
+            'qb_settings',
+            'settings_updated',
+            'Settings saved successfully!',
+            'updated'
+        );
+    } else {
+        add_settings_error(
+            'qb_settings',
+            'settings_error',
+            'Error saving settings. Please try again.',
+            'error'
+        );
+    }
 }
 
 /**
@@ -168,9 +188,16 @@ function qb_get_quiz_settings_ajax() {
     ));
 
     if ($settings) {
+        // Ensure boolean values are properly handled
+        $settings->is_paginated = (int)$settings->is_paginated;
+        $settings->questions_per_page = (int)$settings->questions_per_page;
         wp_send_json_success($settings);
     } else {
-        wp_send_json_error(['message' => 'No settings found']);
+        // Return default settings
+        wp_send_json_success(array(
+            'is_paginated' => 0,
+            'questions_per_page' => 1
+        ));
     }
 }
 add_action('wp_ajax_qb_get_quiz_settings', 'qb_get_quiz_settings_ajax'); 
