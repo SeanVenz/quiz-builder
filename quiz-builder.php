@@ -20,6 +20,7 @@ define('QB_VERSION', '1.0.0');
 require_once QB_PATH . 'includes/db-functions.php';
 require_once QB_PATH . 'admin/quiz-admin-page.php';
 require_once QB_PATH . 'admin/manage-questions-page.php';
+require_once QB_PATH . 'admin/quiz-settings-page.php';
 require_once QB_PATH . 'templates/quiz-display.php';
 require_once QB_PATH . 'templates/quiz-results.php';
 
@@ -273,9 +274,6 @@ add_action('init', 'qb_register_shortcodes', 10);
 
 // Add form submission handler with higher priority
 add_action('template_redirect', 'qb_handle_quiz_submission', 1);
-
-// Add admin menu
-add_action('admin_menu', 'qb_add_admin_menu');
 
 // Register the query var
 function qb_register_query_vars($vars) {

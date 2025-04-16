@@ -8,47 +8,94 @@ function qb_manage_questions_page() {
     wp_enqueue_script('jquery-ui-sortable');
     wp_enqueue_style('jquery-ui', 'https://code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css');
 
-    // Handle CSV export
-    if (isset($_GET['action']) && $_GET['action'] === 'export_quiz_attempts' && isset($_GET['quiz_id'])) {
-        $quiz_id = intval($_GET['quiz_id']);
-        check_admin_referer('export_quiz_attempts_' . $quiz_id);
+    $quiz_id = isset($_GET['quiz_id']) ? intval($_GET['quiz_id']) : 0;
 
-        header('Content-Type: text/csv');
-        header('Content-Disposition: attachment; filename="quiz-attempts.csv"');
-        header('Pragma: no-cache');
-        header('Expires: 0');
+    // If no quiz ID is provided, show the quiz list
+    if (!$quiz_id) {
+        // Get all quizzes
+        $quizzes = $wpdb->get_results("SELECT * FROM {$wpdb->prefix}qb_quizzes ORDER BY id DESC");
+        ?>
+        <div class="wrap">
+            <h1>Quiz Builder</h1>
+            
+            <h2>Add New Quiz</h2>
+            <form method="post" class="qb-form">
+                <?php wp_nonce_field('qb_add_quiz'); ?>
+                <input type="hidden" name="action" value="add_quiz">
+                <table class="form-table">
+                    <tr>
+                        <th><label for="quiz_title">Quiz Title</label></th>
+                        <td>
+                            <input name="quiz_title" type="text" id="quiz_title" class="regular-text" required>
+                            <p class="description">Enter the title of your quiz</p>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th><label for="quiz_description">Description</label></th>
+                        <td>
+                            <textarea name="quiz_description" id="quiz_description" rows="4" class="large-text"></textarea>
+                            <p class="description">Enter a description for your quiz (optional)</p>
+                        </td>
+                    </tr>
+                </table>
+                <?php submit_button('Add Quiz', 'primary', 'submit', false); ?>
+            </form>
 
-        $output = fopen('php://output', 'w');
-        
-        // CSV headers
-        fputcsv($output, array('Attempt ID', 'User', 'Score', 'Total Points', 'Percentage', 'Date'));
-        
-        $attempts = $wpdb->get_results($wpdb->prepare(
-            "SELECT a.*, u.display_name 
-             FROM {$wpdb->prefix}qb_attempts a 
-             LEFT JOIN {$wpdb->users} u ON a.user_id = u.ID 
-             WHERE a.quiz_id = %d 
-             ORDER BY a.created_at DESC",
-            $quiz_id
-        ));
-        
-        foreach ($attempts as $attempt) {
-            $percentage = round(($attempt->score / $attempt->total_points) * 100);
-            fputcsv($output, array(
-                $attempt->random_id,
-                $attempt->display_name ?: 'Guest',
-                $attempt->score,
-                $attempt->total_points,
-                $percentage . '%',
-                $attempt->created_at
-            ));
-        }
-        
-        fclose($output);
-        exit;
+            <hr>
+
+            <h2>Your Quizzes</h2>
+            <?php if ($quizzes): ?>
+                <table class="wp-list-table widefat fixed striped">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Title</th>
+                            <th>Description</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php foreach ($quizzes as $quiz): ?>
+                            <tr>
+                                <td><?php echo esc_html($quiz->id); ?></td>
+                                <td><?php echo esc_html($quiz->title); ?></td>
+                                <td><?php echo esc_html($quiz->description); ?></td>
+                                <td>
+                                    <a href="<?php echo esc_url(add_query_arg('quiz_id', $quiz->id)); ?>" class="button">Manage Questions</a>
+                                    <a href="<?php echo esc_url(add_query_arg(array(
+                                        'page' => 'qb-quiz-settings',
+                                        'quiz_id' => $quiz->id
+                                    ))); ?>" class="button">Settings</a>
+                                </td>
+                            </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+            <?php else: ?>
+                <p>No quizzes found. Create your first quiz above!</p>
+            <?php endif; ?>
+        </div>
+        <?php
+        return;
     }
 
-    $quiz_id = isset($_GET['quiz_id']) ? intval($_GET['quiz_id']) : 0;
+    // Handle quiz addition
+    if (isset($_POST['action']) && $_POST['action'] === 'add_quiz') {
+        check_admin_referer('qb_add_quiz');
+        
+        $title = sanitize_text_field($_POST['quiz_title']);
+        $description = sanitize_textarea_field($_POST['quiz_description']);
+        
+        if (!empty($title)) {
+            $wpdb->insert($wpdb->prefix . 'qb_quizzes', [
+                'title' => $title,
+                'description' => $description,
+                'created_at' => current_time('mysql')
+            ]);
+            echo '<div class="updated notice"><p>Quiz added successfully!</p></div>';
+        }
+    }
+
     $quiz = $wpdb->get_row($wpdb->prepare("SELECT * FROM {$wpdb->prefix}qb_quizzes WHERE id = %d", $quiz_id));
 
     if (!$quiz) {
@@ -192,13 +239,13 @@ function qb_manage_questions_page() {
 
         <div class="qb-questions-container">
             <div class="qb-actions">
-                <a href="<?php echo esc_url(add_query_arg(array(
+                <!-- <a href="<?php echo esc_url(add_query_arg(array(
                     'action' => 'export_quiz_attempts',
                     'quiz_id' => $quiz_id,
                     '_wpnonce' => wp_create_nonce('export_quiz_attempts_' . $quiz_id)
                 ))); ?>" class="button button-primary">
                     Export Quiz Attempts
-                </a>
+                </a> -->
             </div>
 
             <h2>Add New Question</h2>
