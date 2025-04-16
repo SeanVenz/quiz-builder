@@ -96,3 +96,60 @@ function qb_create_attempts_table() {
     require_once ABSPATH . 'wp-admin/includes/upgrade.php';
     dbDelta($sql);
 }
+
+function qb_create_quiz_settings_table() {
+    global $wpdb;
+    $table_name = $wpdb->prefix . 'qb_quiz_settings';
+    $charset_collate = $wpdb->get_charset_collate();
+
+    $sql = "CREATE TABLE IF NOT EXISTS $table_name (
+        id BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+        quiz_id BIGINT(20) UNSIGNED NOT NULL,
+        questions_per_page INT DEFAULT 1,
+        is_paginated TINYINT(1) DEFAULT 0,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        PRIMARY KEY (id),
+        UNIQUE KEY quiz_id (quiz_id),
+        FOREIGN KEY (quiz_id) REFERENCES {$wpdb->prefix}qb_quizzes(id) ON DELETE CASCADE
+    ) $charset_collate;";
+
+    require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
+    dbDelta($sql);
+}
+
+function qb_create_database_tables() {
+    // Create all necessary tables
+    if (function_exists('qb_create_quiz_table')) {
+        qb_create_quiz_table();
+    }
+
+    if (function_exists('qb_create_questions_table')) {
+        qb_create_questions_table();
+    }
+
+    if (function_exists('qb_create_options_table')) {
+        qb_create_options_table();
+    }
+
+    if (function_exists('qb_create_attempts_table')) {
+        qb_create_attempts_table();
+    }
+
+    if (function_exists('qb_create_quiz_settings_table')) {
+        qb_create_quiz_settings_table();
+    }
+
+    // Create quiz results page if it doesn't exist
+    $results_page = get_page_by_path('quiz-results');
+    if (!$results_page) {
+        $page_data = array(
+            'post_title'    => 'Quiz Results',
+            'post_name'     => 'quiz-results',
+            'post_status'   => 'publish',
+            'post_type'     => 'page',
+            'post_content'  => '[quiz_results]'
+        );
+        wp_insert_post($page_data);
+    }
+}

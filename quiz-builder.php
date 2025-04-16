@@ -14,6 +14,7 @@ if (!defined('ABSPATH')) {
 // Define constants
 define('QB_PATH', plugin_dir_path(__FILE__));
 define('QB_URL', plugin_dir_url(__FILE__));
+define('QB_VERSION', '1.0.0');
 
 // Include dependencies
 require_once QB_PATH . 'includes/db-functions.php';
@@ -25,38 +26,25 @@ require_once QB_PATH . 'templates/quiz-results.php';
 // Register activation hook
 register_activation_hook(__FILE__, 'qb_activate_plugin');
 
+// Add update check
+add_action('plugins_loaded', 'qb_check_for_updates');
+
+/**
+ * Check for plugin updates and run necessary updates
+ */
+function qb_check_for_updates() {
+    $current_version = get_option('qb_version', '0');
+    if (version_compare($current_version, QB_VERSION, '<')) {
+        qb_create_database_tables();
+        update_option('qb_version', QB_VERSION);
+    }
+}
+
 /**
  * Plugin activation function
  */
 function qb_activate_plugin() {
-    if (function_exists('qb_create_quiz_table')) {
-        qb_create_quiz_table();
-    }
-
-    if (function_exists('qb_create_questions_table')) {
-        qb_create_questions_table();
-    }
-
-    if (function_exists('qb_create_options_table')) {
-        qb_create_options_table();
-    }
-
-    if (function_exists('qb_create_attempts_table')) {
-        qb_create_attempts_table();
-    }
-
-    // Create quiz results page if it doesn't exist
-    $results_page = get_page_by_path('quiz-results');
-    if (!$results_page) {
-        $page_data = array(
-            'post_title'    => 'Quiz Results',
-            'post_name'     => 'quiz-results',
-            'post_status'   => 'publish',
-            'post_type'     => 'page',
-            'post_content'  => '[quiz_results]'
-        );
-        wp_insert_post($page_data);
-    }
+    qb_create_database_tables();
 }
 
 /**
@@ -77,25 +65,42 @@ function qb_display_quiz($atts) {
     $quiz_table = $wpdb->prefix . 'qb_quizzes';
     $questions_table = $wpdb->prefix . 'qb_questions';
     $options_table = $wpdb->prefix . 'qb_options';
+    $settings_table = $wpdb->prefix . 'qb_quiz_settings';
 
     $quiz = $wpdb->get_row($wpdb->prepare("SELECT * FROM $quiz_table WHERE id = %d", $quiz_id));
     if (!$quiz) {
         return '<div class="error"><p>Quiz not found!</p></div>';
     }
 
-    $questions = $wpdb->get_results($wpdb->prepare("SELECT * FROM $questions_table WHERE quiz_id = %d", $quiz_id));
+    $questions = $wpdb->get_results($wpdb->prepare("SELECT * FROM $questions_table WHERE quiz_id = %d ORDER BY `order` ASC, id ASC", $quiz_id));
     if (!$questions) {
         return '<div class="error"><p>No questions available for this quiz.</p></div>';
     }
 
     $options = $wpdb->get_results($wpdb->prepare("SELECT * FROM $options_table WHERE question_id IN (SELECT id FROM $questions_table WHERE quiz_id = %d)", $quiz_id));
 
-    return qb_get_quiz_display($quiz, $questions, $options);
+    // Get quiz settings
+    $settings = $wpdb->get_row($wpdb->prepare("SELECT * FROM $settings_table WHERE quiz_id = %d", $quiz_id));
+    if (!$settings) {
+        $settings = (object) array(
+            'is_paginated' => 0,
+            'questions_per_page' => 1
+        );
+    }
+
+    return qb_get_quiz_display($quiz, $questions, $options, $settings);
 }
 
 function qb_generate_random_id() {
     return bin2hex(random_bytes(16));
 }
+
+// Register the action for both logged-in and non-logged-in users
+add_action('template_redirect', function() {
+    if (isset($_POST['action']) && $_POST['action'] === 'qb_handle_quiz_submission') {
+        qb_handle_quiz_submission();
+    }
+});
 
 function qb_handle_quiz_submission() {
     // Debug logging
@@ -105,11 +110,17 @@ function qb_handle_quiz_submission() {
     // Verify nonce
     if (!isset($_POST['qb_quiz_nonce']) || !wp_verify_nonce($_POST['qb_quiz_nonce'], 'qb_quiz_submission')) {
         error_log('Invalid nonce');
+        if (wp_doing_ajax()) {
+            wp_send_json_error('Invalid nonce');
+        }
         return;
     }
 
-    if (!isset($_POST['submit_quiz']) || !isset($_POST['quiz_id'])) {
-        error_log('Missing required POST data: submit_quiz or quiz_id');
+    if (!isset($_POST['quiz_id'])) {
+        error_log('Missing required POST data: quiz_id');
+        if (wp_doing_ajax()) {
+            wp_send_json_error('Missing quiz ID');
+        }
         return;
     }
 
@@ -125,6 +136,9 @@ function qb_handle_quiz_submission() {
     $quiz = $wpdb->get_row($wpdb->prepare("SELECT * FROM $quiz_table WHERE id = %d", $quiz_id));
     if (!$quiz) {
         error_log('Quiz not found with ID: ' . $quiz_id);
+        if (wp_doing_ajax()) {
+            wp_send_json_error('Quiz not found');
+        }
         return;
     }
 
@@ -182,6 +196,9 @@ function qb_handle_quiz_submission() {
 
     if ($insert_result === false) {
         error_log('Failed to insert quiz attempt: ' . $wpdb->last_error);
+        if (wp_doing_ajax()) {
+            wp_send_json_error('Failed to save quiz attempt');
+        }
         return;
     }
 
@@ -198,28 +215,25 @@ function qb_handle_quiz_submission() {
 
     error_log('Redirecting to: ' . $redirect_url);
     
-    // Clear any output buffers
-    while (ob_get_level()) {
-        ob_end_clean();
-    }
-    
-    // Ensure no headers are sent
-    if (!headers_sent()) {
-        wp_safe_redirect($redirect_url);
-        exit;
+    if (wp_doing_ajax()) {
+        wp_send_json_success(array('redirect_url' => $redirect_url));
     } else {
-        error_log('Headers already sent, using JavaScript redirect');
-        echo '<script>window.location.href="' . esc_url($redirect_url) . '";</script>';
-        exit;
+        // Clear any output buffers
+        while (ob_get_level()) {
+            ob_end_clean();
+        }
+        
+        // Ensure no headers are sent
+        if (!headers_sent()) {
+            wp_safe_redirect($redirect_url);
+            exit;
+        } else {
+            error_log('Headers already sent, using JavaScript redirect');
+            echo '<script>window.location.href="' . esc_url($redirect_url) . '";</script>';
+            exit;
+        }
     }
 }
-
-// Register the action for both logged-in and non-logged-in users
-add_action('template_redirect', function() {
-    if (isset($_POST['action']) && $_POST['action'] === 'qb_handle_quiz_submission') {
-        qb_handle_quiz_submission();
-    }
-});
 
 /**
  * Display quiz results
@@ -333,7 +347,6 @@ function qb_get_attempt_details() {
 
 // Add rewrite rules for the new URL structure
 function qb_add_rewrite_rules() {
-    // Add rule for page-based URLs
     add_rewrite_rule(
         '^quiz-results/([^/]+)/?$',
         'index.php?pagename=quiz-results&quiz_result_id=$matches[1]',
@@ -386,4 +399,104 @@ function qb_export_attempts_csv() {
     
     fclose($output);
     exit;
+}
+
+// Add AJAX handler for getting quiz settings
+add_action('wp_ajax_qb_get_quiz_settings', 'qb_get_quiz_settings');
+function qb_get_quiz_settings() {
+    check_ajax_referer('qb_get_settings', 'nonce');
+
+    global $wpdb;
+    $quiz_id = intval($_POST['quiz_id']);
+    $settings_table = $wpdb->prefix . 'qb_quiz_settings';
+
+    $settings = $wpdb->get_row($wpdb->prepare(
+        "SELECT * FROM $settings_table WHERE quiz_id = %d",
+        $quiz_id
+    ));
+
+    if ($settings) {
+        wp_send_json_success($settings);
+    } else {
+        wp_send_json_success(array(
+            'is_paginated' => 0,
+            'questions_per_page' => 1
+        ));
+    }
+}
+
+/**
+ * Enqueue admin scripts and styles
+ */
+function qb_admin_enqueue_scripts($hook) {
+    // ... existing code ...
+}
+
+// Add AJAX handlers for quiz answers
+add_action('wp_ajax_qb_save_quiz_answers', 'qb_save_quiz_answers');
+add_action('wp_ajax_nopriv_qb_save_quiz_answers', 'qb_save_quiz_answers');
+add_action('wp_ajax_qb_get_quiz_answers', 'qb_get_quiz_answers');
+add_action('wp_ajax_nopriv_qb_get_quiz_answers', 'qb_get_quiz_answers');
+add_action('wp_ajax_qb_clear_quiz_answers', 'qb_clear_quiz_answers');
+add_action('wp_ajax_nopriv_qb_clear_quiz_answers', 'qb_clear_quiz_answers');
+
+function qb_save_quiz_answers() {
+    check_ajax_referer('qb_save_answers', 'nonce');
+
+    if (!isset($_POST['quiz_id']) || !isset($_POST['answers'])) {
+        wp_send_json_error('Missing required data');
+    }
+
+    $quiz_id = intval($_POST['quiz_id']);
+    $answers = $_POST['answers'];
+
+    // Generate a unique key for this user's quiz attempt
+    $user_id = get_current_user_id();
+    $key = 'quiz_answers_' . ($user_id ? $user_id : 'guest') . '_' . $quiz_id;
+
+    // Store answers in transient (expires in 1 hour)
+    set_transient($key, $answers, HOUR_IN_SECONDS);
+
+    wp_send_json_success();
+}
+
+function qb_get_quiz_answers() {
+    check_ajax_referer('qb_get_answers', 'nonce');
+
+    if (!isset($_POST['quiz_id'])) {
+        wp_send_json_error('Missing quiz ID');
+    }
+
+    $quiz_id = intval($_POST['quiz_id']);
+
+    // Generate the key
+    $user_id = get_current_user_id();
+    $key = 'quiz_answers_' . ($user_id ? $user_id : 'guest') . '_' . $quiz_id;
+
+    // Get answers from transient
+    $answers = get_transient($key);
+    if ($answers === false) {
+        $answers = array();
+    }
+
+    wp_send_json_success($answers);
+}
+
+function qb_clear_quiz_answers() {
+    check_ajax_referer('qb_clear_answers', 'nonce');
+
+    if (!isset($_POST['quiz_id'])) {
+        wp_send_json_error('Missing quiz ID');
+    }
+
+    $quiz_id = intval($_POST['quiz_id']);
+
+    // Generate the key
+    $user_id = get_current_user_id();
+    $key = 'quiz_answers_' . ($user_id ? $user_id : 'guest') . '_' . $quiz_id;
+
+    // Delete the transient
+    delete_transient($key);
+
+    wp_send_json_success();
 }
