@@ -8,6 +8,46 @@ function qb_manage_questions_page() {
     wp_enqueue_script('jquery-ui-sortable');
     wp_enqueue_style('jquery-ui', 'https://code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css');
 
+    // Handle CSV export
+    if (isset($_GET['action']) && $_GET['action'] === 'export_quiz_attempts' && isset($_GET['quiz_id'])) {
+        $quiz_id = intval($_GET['quiz_id']);
+        check_admin_referer('export_quiz_attempts_' . $quiz_id);
+
+        header('Content-Type: text/csv');
+        header('Content-Disposition: attachment; filename="quiz-attempts.csv"');
+        header('Pragma: no-cache');
+        header('Expires: 0');
+
+        $output = fopen('php://output', 'w');
+        
+        // CSV headers
+        fputcsv($output, array('Attempt ID', 'User', 'Score', 'Total Points', 'Percentage', 'Date'));
+        
+        $attempts = $wpdb->get_results($wpdb->prepare(
+            "SELECT a.*, u.display_name 
+             FROM {$wpdb->prefix}qb_attempts a 
+             LEFT JOIN {$wpdb->users} u ON a.user_id = u.ID 
+             WHERE a.quiz_id = %d 
+             ORDER BY a.created_at DESC",
+            $quiz_id
+        ));
+        
+        foreach ($attempts as $attempt) {
+            $percentage = round(($attempt->score / $attempt->total_points) * 100);
+            fputcsv($output, array(
+                $attempt->random_id,
+                $attempt->display_name ?: 'Guest',
+                $attempt->score,
+                $attempt->total_points,
+                $percentage . '%',
+                $attempt->created_at
+            ));
+        }
+        
+        fclose($output);
+        exit;
+    }
+
     $quiz_id = isset($_GET['quiz_id']) ? intval($_GET['quiz_id']) : 0;
     $quiz = $wpdb->get_row($wpdb->prepare("SELECT * FROM {$wpdb->prefix}qb_quizzes WHERE id = %d", $quiz_id));
 
@@ -118,6 +158,26 @@ function qb_manage_questions_page() {
                 }
                 echo '<div class="updated notice"><p>Question order saved!</p></div>';
                 break;
+
+            case 'save_options':
+                $question_id = intval($_POST['question_id']);
+                $options = json_decode(stripslashes($_POST['options']), true);
+                
+                if (is_array($options)) {
+                    // Delete existing options
+                    $wpdb->delete($options_table, ['question_id' => $question_id]);
+                    
+                    // Insert new options
+                    foreach ($options as $option) {
+                        $wpdb->insert($options_table, [
+                            'question_id' => $question_id,
+                            'option_text' => sanitize_text_field($option['text']),
+                            'points' => intval($option['points'])
+                        ]);
+                    }
+                    echo '<div class="updated notice"><p>Options saved!</p></div>';
+                }
+                break;
         }
     }
 
@@ -131,6 +191,16 @@ function qb_manage_questions_page() {
         <h1>Manage Questions for: <?php echo esc_html($quiz->title); ?></h1>
 
         <div class="qb-questions-container">
+            <div class="qb-actions">
+                <a href="<?php echo esc_url(add_query_arg(array(
+                    'action' => 'export_quiz_attempts',
+                    'quiz_id' => $quiz_id,
+                    '_wpnonce' => wp_create_nonce('export_quiz_attempts_' . $quiz_id)
+                ))); ?>" class="button button-primary">
+                    Export Quiz Attempts
+                </a>
+            </div>
+
             <h2>Add New Question</h2>
             <form method="post" class="qb-form">
                 <?php wp_nonce_field('qb_manage_questions'); ?>
@@ -168,40 +238,25 @@ function qb_manage_questions_page() {
                                 </div>
                             </div>
                             <div class="accordion-body">
-                                <div class="options-list">
-                                    <?php if ($options): ?>
-                                        <table class="widefat striped">
-                                            <thead>
-                                                <tr>
-                                                    <th>Option</th>
-                                                    <th>Points</th>
-                                                    <th>Actions</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody>
-                                                <?php foreach ($options as $opt): ?>
-                                                    <tr>
-                                                        <td><?php echo esc_html($opt->option_text); ?></td>
-                                                        <td><?php echo esc_html($opt->points); ?></td>
-                                                        <td>
-                                                            <button class="button edit-option" data-id="<?php echo $opt->id; ?>">Edit</button>
-                                                            <button class="button delete-option" data-id="<?php echo $opt->id; ?>">Delete</button>
-                                                        </td>
-                                                    </tr>
-                                                <?php endforeach; ?>
-                                            </tbody>
-                                        </table>
-                                    <?php else: ?>
-                                        <p>No options yet.</p>
-                                    <?php endif; ?>
-
-                                    <form method="post" class="qb-form add-option-form">
+                                <div class="options-management">
+                                    <h4>Options</h4>
+                                    <button type="button" class="button add-option-btn">Add Option</button>
+                                    
+                                    <form method="post" class="qb-form">
                                         <?php wp_nonce_field('qb_manage_questions'); ?>
-                                        <input type="hidden" name="action" value="add_option">
+                                        <input type="hidden" name="action" value="save_options">
                                         <input type="hidden" name="question_id" value="<?php echo $question->id; ?>">
-                                        <input type="text" name="option_text" placeholder="Option text" required>
-                                        <input type="number" name="points" placeholder="Points" required style="width:80px;">
-                                        <?php submit_button('Add Option', 'secondary', 'submit', false); ?>
+                                        <input type="hidden" name="options" value='<?php 
+                                            echo esc_attr(json_encode(array_map(function($opt) {
+                                                return ['text' => $opt->option_text, 'points' => $opt->points];
+                                            }, $options)));
+                                        ?>'>
+                                        
+                                        <div class="options-list options-sortable">
+                                            <!-- Options will be added here dynamically -->
+                                        </div>
+                                        
+                                        <button type="button" class="button button-primary save-options-btn">Save Options</button>
                                     </form>
                                 </div>
                             </div>
@@ -263,30 +318,71 @@ function qb_manage_questions_page() {
         .accordion-body.active {
             display: block;
         }
-        .options-list {
-            margin-top: 15px;
+        .options-management {
+            margin-top: 20px;
+            padding: 20px;
+            background: #f9f9f9;
+            border-radius: 4px;
+            border: 1px solid #ddd;
         }
-        .add-option-form {
-            margin-top: 15px;
+        .options-list {
+            margin-bottom: 20px;
+        }
+        .option-item {
             display: flex;
             gap: 10px;
             align-items: center;
+            padding: 10px;
+            background: #fff;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            margin-bottom: 10px;
         }
-        .add-option-form input[type="text"] {
+        .option-item .handle {
+            cursor: move;
+            color: #666;
+            padding: 5px;
+        }
+        .option-item input[type="text"] {
             flex-grow: 1;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        .option-item input[type="number"] {
+            width: 80px;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        .option-item .actions {
+            display: flex;
+            gap: 5px;
+        }
+        .add-option-btn {
+            margin-bottom: 20px;
+        }
+        .save-options-btn {
+            margin-top: 20px;
         }
         .ui-sortable-helper {
+            background: #fff;
             box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        }
+        .qb-actions {
+            margin-bottom: 20px;
+            display: flex;
+            gap: 10px;
         }
         .edit-question-form,
         .edit-option-form {
-            display: flex;
-            gap: 10px;
-            align-items: center;
+            position: relative;
+            z-index: 1;
         }
-        .edit-question-form input[type="text"],
-        .edit-option-form input[type="text"] {
-            flex-grow: 1;
+        .edit-question-form button,
+        .edit-option-form button {
+            position: relative;
+            z-index: 2;
         }
     </style>
 
@@ -307,7 +403,7 @@ function qb_manage_questions_page() {
 
         // Toggle accordion
         $('.accordion-header').on('click', function(e) {
-            if (!$(e.target).is('.handle, .edit-question, .delete-question')) {
+            if (!$(e.target).is('.handle, .edit-question, .delete-question, .edit-question-form *, .edit-option-form *')) {
                 $(this).next('.accordion-body').slideToggle();
             }
         });
@@ -330,6 +426,11 @@ function qb_manage_questions_page() {
                     <button type="button" class="button cancel-edit">Cancel</button>
                 </form>
             `);
+
+            // Prevent accordion toggle for edit form
+            $header.find('.edit-question-form').on('click', function(e) {
+                e.stopPropagation();
+            });
         });
 
         // Delete question
@@ -347,45 +448,113 @@ function qb_manage_questions_page() {
             }
         });
 
-        // Edit option
-        $('.edit-option').on('click', function(e) {
-            e.preventDefault();
-            var $row = $(this).closest('tr');
-            var optionText = $row.find('td:first').text();
-            var points = $row.find('td:nth-child(2)').text();
-            var optionId = $(this).data('id');
-            
-            $row.html(`
-                <td colspan="3">
-                    <form method="post" class="qb-form edit-option-form">
-                        <?php echo wp_nonce_field('qb_manage_questions', '_wpnonce', true, false); ?>
-                        <input type="hidden" name="action" value="edit_option">
-                        <input type="hidden" name="option_id" value="${optionId}">
-                        <input type="text" name="option_text" value="${optionText}" required>
-                        <input type="number" name="points" value="${points}" required style="width:80px;">
-                        <button type="submit" class="button button-primary">Save</button>
-                        <button type="button" class="button cancel-edit">Cancel</button>
-                    </form>
-                </td>
-            `);
-        });
-
-        // Delete option
-        $('.delete-option').on('click', function(e) {
-            e.preventDefault();
-            if (confirm('Are you sure you want to delete this option?')) {
-                var optionId = $(this).data('id');
-                var $form = $('<form method="post">')
-                    .append('<?php echo wp_nonce_field('qb_manage_questions', '_wpnonce', true, false); ?>')
-                    .append($('<input type="hidden" name="action" value="delete_option">'))
-                    .append($('<input type="hidden" name="option_id" value="' + optionId + '">'));
-                $('body').append($form);
-                $form.submit();
+        // Initialize options sortable
+        $('.options-sortable').sortable({
+            handle: '.handle',
+            update: function() {
+                updateOptionsOrder($(this));
             }
         });
 
+        // Add new option
+        $('.add-option-btn').on('click', function() {
+            var $container = $(this).closest('.options-management');
+            var $optionsList = $container.find('.options-list');
+            var optionCount = $optionsList.find('.option-item').length;
+            
+            var $newOption = $(`
+                <div class="option-item">
+                    <span class="handle">⋮</span>
+                    <input type="text" placeholder="Option text" required>
+                    <input type="number" placeholder="Points" value="0" required>
+                    <div class="actions">
+                        <button type="button" class="button remove-option">Remove</button>
+                    </div>
+                </div>
+            `);
+            
+            $optionsList.append($newOption);
+            updateOptionsOrder($container.find('.options-sortable'));
+        });
+
+        // Remove option
+        $(document).on('click', '.remove-option', function() {
+            $(this).closest('.option-item').remove();
+            updateOptionsOrder($(this).closest('.options-sortable'));
+        });
+
+        // Update options order and prepare for saving
+        function updateOptionsOrder($sortable) {
+            var $container = $sortable.closest('.options-management');
+            var options = [];
+            
+            $sortable.find('.option-item').each(function() {
+                options.push({
+                    text: $(this).find('input[type="text"]').val(),
+                    points: $(this).find('input[type="number"]').val()
+                });
+            });
+            
+            $container.find('input[name="options"]').val(JSON.stringify(options));
+        }
+
+        // Save options
+        $('.save-options-btn').on('click', function() {
+            var $form = $(this).closest('form');
+            var options = [];
+            var isValid = true;
+            
+            $form.find('.option-item').each(function() {
+                var $text = $(this).find('input[type="text"]');
+                var $points = $(this).find('input[type="number"]');
+                
+                if (!$text.val()) {
+                    isValid = false;
+                    $text.addClass('error');
+                } else {
+                    $text.removeClass('error');
+                }
+                
+                options.push({
+                    text: $text.val(),
+                    points: $points.val()
+                });
+            });
+            
+            if (!isValid) {
+                alert('Please fill in all option texts');
+                return;
+            }
+            
+            $form.find('input[name="options"]').val(JSON.stringify(options));
+            $form.submit();
+        });
+
+        // Initialize existing options
+        $('.options-management').each(function() {
+            var $container = $(this);
+            var $optionsList = $container.find('.options-list');
+            var options = JSON.parse($container.find('input[name="options"]').val() || '[]');
+            
+            options.forEach(function(option) {
+                var $option = $(`
+                    <div class="option-item">
+                        <span class="handle">⋮</span>
+                        <input type="text" value="${option.text}" required>
+                        <input type="number" value="${option.points}" required>
+                        <div class="actions">
+                            <button type="button" class="button remove-option">Remove</button>
+                        </div>
+                    </div>
+                `);
+                $optionsList.append($option);
+            });
+        });
+
         // Cancel edit
-        $(document).on('click', '.cancel-edit', function() {
+        $(document).on('click', '.cancel-edit', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
             location.reload();
         });
     });

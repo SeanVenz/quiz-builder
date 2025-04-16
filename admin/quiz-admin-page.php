@@ -128,6 +128,13 @@ function qb_quiz_attempts_page() {
         <h1>Quiz Attempts</h1>
         
         <?php if ($attempts): ?>
+            <div class="tablenav top">
+                <div class="alignleft actions">
+                    <a href="<?php echo wp_nonce_url(admin_url('admin-ajax.php?action=qb_export_attempts_csv'), 'qb_export_csv', 'nonce'); ?>" class="button">Export to CSV</a>
+                </div>
+                <br class="clear">
+            </div>
+
             <table class="widefat fixed striped">
                 <thead>
                     <tr>
@@ -152,7 +159,7 @@ function qb_quiz_attempts_page() {
                             <td><?php echo esc_html(round(($attempt->score / $attempt->total_points) * 100)) . '%'; ?></td>
                             <td><?php echo esc_html($attempt->created_at); ?></td>
                             <td>
-                                <a href="#" class="view-attempt-details" data-attempt-id="<?php echo esc_attr($attempt->id); ?>">View Details</a>
+                                <a href="#" class="view-attempt-details" data-attempt-id="<?php echo esc_attr($attempt->random_id); ?>">View Details</a>
                             </td>
                         </tr>
                     <?php endforeach; ?>
@@ -185,6 +192,15 @@ function qb_quiz_attempts_page() {
                     max-height: 80%;
                     overflow-y: auto;
                 }
+                .attempt-details table {
+                    margin-top: 15px;
+                }
+                .attempt-details .attempt-info {
+                    background: #f9f9f9;
+                    padding: 15px;
+                    border-radius: 4px;
+                    margin-bottom: 20px;
+                }
             </style>
 
             <script>
@@ -195,6 +211,10 @@ function qb_quiz_attempts_page() {
                             const attemptId = this.dataset.attemptId;
                             const modal = document.getElementById('attempt-details-modal');
                             const content = modal.querySelector('.attempt-details-content');
+                            
+                            // Show loading state
+                            content.innerHTML = '<p>Loading...</p>';
+                            modal.style.display = 'block';
                             
                             // Fetch attempt details via AJAX
                             fetch(ajaxurl, {
@@ -210,8 +230,15 @@ function qb_quiz_attempts_page() {
                             })
                             .then(response => response.json())
                             .then(data => {
-                                content.innerHTML = data.html;
-                                modal.style.display = 'block';
+                                if (data.success) {
+                                    content.innerHTML = data.data.html;
+                                } else {
+                                    content.innerHTML = '<p class="error">Error loading attempt details.</p>';
+                                }
+                            })
+                            .catch(error => {
+                                content.innerHTML = '<p class="error">Error loading attempt details.</p>';
+                                console.error('Error:', error);
                             });
                         });
                     });
