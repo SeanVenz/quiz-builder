@@ -1,8 +1,11 @@
 <?php
 if (!defined('ABSPATH')) exit;
 
-// Add the action handler for form submission
+// Add the action handlers for quiz management
 add_action('admin_post_add_quiz', 'handle_add_quiz_submission');
+add_action('admin_post_edit_quiz', 'handle_edit_quiz_submission');
+add_action('admin_post_delete_quiz', 'handle_delete_quiz_submission');
+
 function handle_add_quiz_submission() {
     if (!current_user_can('manage_options')) {
         wp_die('Unauthorized');
@@ -53,6 +56,76 @@ function handle_add_quiz_submission() {
     exit;
 }
 
+function handle_edit_quiz_submission() {
+    if (!current_user_can('manage_options')) {
+        wp_die('Unauthorized');
+    }
+
+    check_admin_referer('qb_edit_quiz');
+    
+    global $wpdb;
+    $quiz_id = intval($_POST['quiz_id']);
+    $title = sanitize_text_field($_POST['quiz_title']);
+    $description = sanitize_textarea_field($_POST['quiz_description']);
+    
+    if (!empty($title)) {
+        $result = $wpdb->update(
+            $wpdb->prefix . 'qb_quizzes',
+            [
+                'title' => $title,
+                'description' => $description
+            ],
+            ['id' => $quiz_id]
+        );
+
+        $message = $result !== false ? 'quiz_updated' : 'quiz_error';
+    } else {
+        $message = 'quiz_error';
+    }
+    
+    wp_safe_redirect(add_query_arg(
+        array(
+            'page' => 'quiz-builder',
+            'message' => $message
+        ),
+        admin_url('admin.php')
+    ));
+    exit;
+}
+
+function handle_delete_quiz_submission() {
+    if (!current_user_can('manage_options')) {
+        wp_die('Unauthorized');
+    }
+
+    check_admin_referer('qb_delete_quiz');
+    
+    global $wpdb;
+    $quiz_id = intval($_POST['quiz_id']);
+    
+    // Delete related records first
+    $wpdb->delete($wpdb->prefix . 'qb_options', ['question_id' => 
+        $wpdb->get_col($wpdb->prepare(
+            "SELECT id FROM {$wpdb->prefix}qb_questions WHERE quiz_id = %d",
+            $quiz_id
+        ))
+    ]);
+    $wpdb->delete($wpdb->prefix . 'qb_questions', ['quiz_id' => $quiz_id]);
+    $wpdb->delete($wpdb->prefix . 'qb_attempts', ['quiz_id' => $quiz_id]);
+    
+    // Delete the quiz
+    $result = $wpdb->delete($wpdb->prefix . 'qb_quizzes', ['id' => $quiz_id]);
+    
+    wp_safe_redirect(add_query_arg(
+        array(
+            'page' => 'quiz-builder',
+            'message' => $result !== false ? 'quiz_deleted' : 'quiz_error'
+        ),
+        admin_url('admin.php')
+    ));
+    exit;
+}
+
 function qb_manage_questions_page() {
     global $wpdb;
 
@@ -64,10 +137,19 @@ function qb_manage_questions_page() {
 
     // Show messages
     if (isset($_GET['message'])) {
-        if ($_GET['message'] === 'quiz_added') {
-            echo '<div class="notice notice-success is-dismissible"><p>Quiz added successfully!</p></div>';
-        } elseif ($_GET['message'] === 'quiz_error') {
-            echo '<div class="notice notice-error is-dismissible"><p>Error adding quiz. Please try again.</p></div>';
+        switch ($_GET['message']) {
+            case 'quiz_added':
+                echo '<div class="notice notice-success is-dismissible"><p>Quiz added successfully!</p></div>';
+                break;
+            case 'quiz_updated':
+                echo '<div class="notice notice-success is-dismissible"><p>Quiz updated successfully!</p></div>';
+                break;
+            case 'quiz_deleted':
+                echo '<div class="notice notice-success is-dismissible"><p>Quiz deleted successfully!</p></div>';
+                break;
+            case 'quiz_error':
+                echo '<div class="notice notice-error is-dismissible"><p>Error processing quiz. Please try again.</p></div>';
+                break;
         }
     }
 
@@ -119,16 +201,81 @@ function qb_manage_questions_page() {
                         <?php foreach ($quizzes as $quiz): ?>
                             <tr>
                                 <td><?php echo esc_html($quiz->id); ?></td>
-                                <td><?php echo esc_html($quiz->title); ?></td>
+                                <td>
+                                    <span class="quiz-title"><?php echo esc_html($quiz->title); ?></span>
+                                    <div class="edit-form" style="display: none;">
+                                        <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
+                                            <?php wp_nonce_field('qb_edit_quiz'); ?>
+                                            <input type="hidden" name="action" value="edit_quiz">
+                                            <input type="hidden" name="quiz_id" value="<?php echo esc_attr($quiz->id); ?>">
+                                            <input type="text" name="quiz_title" value="<?php echo esc_attr($quiz->title); ?>" required>
+                                            <textarea name="quiz_description"><?php echo esc_textarea($quiz->description); ?></textarea>
+                                            <button type="submit" class="button button-primary">Save</button>
+                                            <button type="button" class="button cancel-edit">Cancel</button>
+                                        </form>
+                                    </div>
+                                </td>
                                 <td><?php echo esc_html($quiz->description); ?></td>
                                 <td>
-                                    <a href="<?php echo esc_url(add_query_arg(array('page' => 'quiz-builder', 'quiz_id' => $quiz->id), admin_url('admin.php'))); ?>" class="button">Manage Questions</a>
-                                    <a href="<?php echo esc_url(add_query_arg(array('page' => 'qb-quiz-settings', 'quiz_id' => $quiz->id), admin_url('admin.php'))); ?>" class="button">Settings</a>
+                                    <div class="row-actions">
+                                        <a href="<?php echo esc_url(add_query_arg(array('page' => 'quiz-builder', 'quiz_id' => $quiz->id), admin_url('admin.php'))); ?>" class="button">Manage Questions</a>
+                                        <a href="<?php echo esc_url(add_query_arg(array('page' => 'qb-quiz-settings', 'quiz_id' => $quiz->id), admin_url('admin.php'))); ?>" class="button">Settings</a>
+                                        <button class="button edit-quiz">Edit</button>
+                                        <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" style="display:inline;">
+                                            <?php wp_nonce_field('qb_delete_quiz'); ?>
+                                            <input type="hidden" name="action" value="delete_quiz">
+                                            <input type="hidden" name="quiz_id" value="<?php echo esc_attr($quiz->id); ?>">
+                                            <button type="submit" class="button delete-quiz" onclick="return confirm('Are you sure you want to delete this quiz? This will also delete all questions, options, and attempts associated with it.');">Delete</button>
+                                        </form>
+                                    </div>
                                 </td>
                             </tr>
                         <?php endforeach; ?>
                     </tbody>
                 </table>
+
+                <style>
+                    .edit-form {
+                        margin-top: 10px;
+                        padding: 10px;
+                        background: #f9f9f9;
+                        border: 1px solid #ddd;
+                    }
+                    .edit-form input[type="text"] {
+                        width: 100%;
+                        margin-bottom: 10px;
+                    }
+                    .edit-form textarea {
+                        width: 100%;
+                        height: 100px;
+                        margin-bottom: 10px;
+                    }
+                    .row-actions {
+                        display: flex;
+                        gap: 5px;
+                    }
+                    .delete-quiz {
+                        color: #dc3232;
+                    }
+                </style>
+
+                <script>
+                jQuery(document).ready(function($) {
+                    // Edit quiz functionality
+                    $('.edit-quiz').on('click', function() {
+                        var $row = $(this).closest('tr');
+                        $row.find('.quiz-title').hide();
+                        $row.find('.edit-form').show();
+                    });
+
+                    // Cancel edit
+                    $('.cancel-edit').on('click', function() {
+                        var $row = $(this).closest('tr');
+                        $row.find('.quiz-title').show();
+                        $row.find('.edit-form').hide();
+                    });
+                });
+                </script>
             <?php else: ?>
                 <p>No quizzes found. Create your first quiz above!</p>
             <?php endif; ?>
