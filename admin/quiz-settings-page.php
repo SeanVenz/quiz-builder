@@ -1,6 +1,8 @@
 <?php
 if (!defined('ABSPATH')) exit;
 
+require_once plugin_dir_path(__FILE__) . '../includes/db/class-quiz-settings-db.php';
+
 /**
  * Display and handle the quiz settings page
  * This page allows users to configure settings for each quiz
@@ -8,11 +10,36 @@ if (!defined('ABSPATH')) exit;
 function qb_quiz_settings_page() {
     global $wpdb;
     $quizzes_table = $wpdb->prefix . 'qb_quizzes';
-    $settings_table = $wpdb->prefix . 'qb_quiz_settings';
+    $settings_db = new QB_Quiz_Settings_DB();
 
     // Handle form submission
     if (isset($_POST['qb_save_settings'])) {
-        handle_settings_save($settings_table);
+        check_admin_referer('qb_save_settings');
+        
+        $quiz_id = intval($_POST['quiz_id']);
+        $settings = array(
+            'is_paginated' => isset($_POST['is_paginated']) ? 1 : 0,
+            'questions_per_page' => max(1, intval($_POST['questions_per_page'])),
+            'show_user_answers' => isset($_POST['show_user_answers']) ? 1 : 0
+        );
+        
+        $result = $settings_db->save_settings($quiz_id, $settings);
+
+        if ($result !== false) {
+            add_settings_error(
+                'qb_settings',
+                'settings_updated',
+                'Settings saved successfully!',
+                'updated'
+            );
+        } else {
+            add_settings_error(
+                'qb_settings',
+                'settings_error',
+                'Error saving settings. Please try again.',
+                'error'
+            );
+        }
     }
 
     // Get all quizzes
@@ -20,6 +47,8 @@ function qb_quiz_settings_page() {
     ?>
     <div class="wrap">
         <h1>Quiz Settings</h1>
+        
+        <?php settings_errors('qb_settings'); ?>
 
         <?php if ($quizzes): ?>
             <form method="post" class="qb-settings-form">
@@ -52,6 +81,13 @@ function qb_quiz_settings_page() {
                             <p class="description">Number of questions to show on each page when pagination is enabled.</p>
                         </td>
                     </tr>
+                    <tr>
+                        <th><label for="show_user_answers">Show User Answers</label></th>
+                        <td>
+                            <input type="checkbox" name="show_user_answers" id="show_user_answers" value="1">
+                            <p class="description">Show detailed results including user's answers and correct answers after quiz completion.</p>
+                        </td>
+                    </tr>
                 </table>
                 <?php submit_button('Save Settings', 'primary', 'qb_save_settings'); ?>
             </form>
@@ -61,13 +97,13 @@ function qb_quiz_settings_page() {
                 const quizSelect = document.getElementById('quiz_id');
                 const isPaginated = document.getElementById('is_paginated');
                 const questionsPerPage = document.getElementById('questions_per_page');
+                const showUserAnswers = document.getElementById('show_user_answers');
 
                 // Load settings when quiz is selected
                 quizSelect.addEventListener('change', function() {
                     if (this.value) {
                         loadQuizSettings(this.value);
                     } else {
-                        // Reset to defaults when no quiz is selected
                         resetToDefaults();
                     }
                 });
@@ -75,6 +111,7 @@ function qb_quiz_settings_page() {
                 function resetToDefaults() {
                     isPaginated.checked = false;
                     questionsPerPage.value = 1;
+                    showUserAnswers.checked = false;
                 }
 
                 function loadQuizSettings(quizId) {
@@ -86,9 +123,9 @@ function qb_quiz_settings_page() {
                     .done(function(response) {
                         if (response.success && response.data) {
                             const settings = response.data;
-                            // Convert to boolean explicitly
                             isPaginated.checked = settings.is_paginated === '1' || settings.is_paginated === 1;
                             questionsPerPage.value = settings.questions_per_page || 1;
+                            showUserAnswers.checked = settings.show_user_answers === '1' || settings.show_user_answers === 1;
                         } else {
                             resetToDefaults();
                         }
@@ -98,10 +135,25 @@ function qb_quiz_settings_page() {
                     });
                 }
 
-                // Load settings if quiz is pre-selected (e.g., after saving)
+                // Load settings if quiz is pre-selected
                 if (quizSelect.value) {
                     loadQuizSettings(quizSelect.value);
                 }
+
+                // Preserve selected quiz after form submission
+                const urlParams = new URLSearchParams(window.location.search);
+                if (urlParams.has('settings-updated')) {
+                    const savedQuizId = localStorage.getItem('lastSelectedQuiz');
+                    if (savedQuizId) {
+                        quizSelect.value = savedQuizId;
+                        loadQuizSettings(savedQuizId);
+                    }
+                }
+
+                // Save selected quiz before form submission
+                $('form').on('submit', function() {
+                    localStorage.setItem('lastSelectedQuiz', quizSelect.value);
+                });
             });
             </script>
         <?php else: ?>
@@ -114,89 +166,27 @@ function qb_quiz_settings_page() {
 }
 
 /**
- * Handle saving quiz settings
- * 
- * @param string $settings_table The name of the settings table
- */
-function handle_settings_save($settings_table) {
-    check_admin_referer('qb_save_settings');
-    global $wpdb;
-    
-    $quiz_id = intval($_POST['quiz_id']);
-    // Explicitly handle checkbox value
-    $is_paginated = isset($_POST['is_paginated']) ? 1 : 0;
-    $questions_per_page = max(1, intval($_POST['questions_per_page']));
-    
-    // Check if settings exist for this quiz
-    $existing_settings = $wpdb->get_var($wpdb->prepare(
-        "SELECT id FROM $settings_table WHERE quiz_id = %d",
-        $quiz_id
-    ));
-
-    if ($existing_settings) {
-        // Update existing settings
-        $result = $wpdb->update(
-            $settings_table,
-            array(
-                'is_paginated' => $is_paginated,
-                'questions_per_page' => $questions_per_page
-            ),
-            array('quiz_id' => $quiz_id)
-        );
-    } else {
-        // Insert new settings
-        $result = $wpdb->insert(
-            $settings_table,
-            array(
-                'quiz_id' => $quiz_id,
-                'is_paginated' => $is_paginated,
-                'questions_per_page' => $questions_per_page
-            )
-        );
-    }
-
-    if ($result !== false) {
-        add_settings_error(
-            'qb_settings',
-            'settings_updated',
-            'Settings saved successfully!',
-            'updated'
-        );
-    } else {
-        add_settings_error(
-            'qb_settings',
-            'settings_error',
-            'Error saving settings. Please try again.',
-            'error'
-        );
-    }
-}
-
-/**
  * AJAX handler for getting quiz settings
  */
 function qb_get_quiz_settings_ajax() {
     check_ajax_referer('qb_get_settings', 'nonce');
     
-    global $wpdb;
     $quiz_id = intval($_POST['quiz_id']);
-    $settings_table = $wpdb->prefix . 'qb_quiz_settings';
-
-    $settings = $wpdb->get_row($wpdb->prepare(
-        "SELECT is_paginated, questions_per_page FROM $settings_table WHERE quiz_id = %d",
-        $quiz_id
-    ));
+    $settings_db = new QB_Quiz_Settings_DB();
+    $settings = $settings_db->get_settings($quiz_id);
 
     if ($settings) {
         // Ensure boolean values are properly handled
         $settings->is_paginated = (int)$settings->is_paginated;
         $settings->questions_per_page = (int)$settings->questions_per_page;
+        $settings->show_user_answers = (int)$settings->show_user_answers;
         wp_send_json_success($settings);
     } else {
         // Return default settings
         wp_send_json_success(array(
             'is_paginated' => 0,
-            'questions_per_page' => 1
+            'questions_per_page' => 1,
+            'show_user_answers' => 0
         ));
     }
 }

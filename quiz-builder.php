@@ -37,6 +37,12 @@ function qb_check_for_updates() {
     $current_version = get_option('qb_version', '0');
     if (version_compare($current_version, QB_VERSION, '<')) {
         qb_create_database_tables();
+        
+        // Update settings table
+        require_once plugin_dir_path(__FILE__) . 'includes/db/class-quiz-settings-db.php';
+        $settings_db = new QB_Quiz_Settings_DB();
+        $settings_db->update_table();
+        
         update_option('qb_version', QB_VERSION);
     }
 }
@@ -45,7 +51,26 @@ function qb_check_for_updates() {
  * Plugin activation function
  */
 function qb_activate_plugin() {
+    // Create base tables first
     qb_create_database_tables();
+    
+    // Create or update settings table
+    require_once plugin_dir_path(__FILE__) . 'includes/db/class-quiz-settings-db.php';
+    $settings_db = new QB_Quiz_Settings_DB();
+    
+    // Force table recreation
+    global $wpdb;
+    $table_name = $wpdb->prefix . 'qb_quiz_settings';
+    $wpdb->query("DROP TABLE IF EXISTS $table_name");
+    
+    // Create fresh table
+    $settings_db->update_table();
+    
+    // Set version
+    update_option('qb_version', QB_VERSION);
+    
+    // Clear any cached data
+    wp_cache_flush();
 }
 
 /**
@@ -242,7 +267,6 @@ function qb_handle_quiz_submission() {
 function qb_display_quiz_results() {
     global $wpdb;
     $attempts_table = $wpdb->prefix . 'qb_attempts';
-    $quizzes_table = $wpdb->prefix . 'qb_quizzes';
     
     // Get the random ID from the URL
     $random_id = get_query_var('quiz_result_id');
@@ -251,18 +275,18 @@ function qb_display_quiz_results() {
     }
 
     // Get the attempt using the random ID
-    $attempt = $wpdb->get_row($wpdb->prepare("SELECT * FROM $attempts_table WHERE random_id = %s", $random_id));
+    $attempt = $wpdb->get_row($wpdb->prepare(
+        "SELECT * FROM $attempts_table WHERE random_id = %s",
+        $random_id
+    ));
+
     if (!$attempt) {
         return '<div class="error"><p>Quiz results not found.</p></div>';
     }
 
-    // Get the quiz
-    $quiz = $wpdb->get_row($wpdb->prepare("SELECT * FROM $quizzes_table WHERE id = %d", $attempt->quiz_id));
-    if (!$quiz) {
-        return '<div class="error"><p>Quiz not found.</p></div>';
-    }
-
-    return qb_get_quiz_results($quiz, $attempt->score, $attempt->total_points);
+    require_once plugin_dir_path(__FILE__) . 'includes/results/class-quiz-results-display.php';
+    $results_display = new QB_Quiz_Results_Display();
+    return $results_display->display_results($attempt->id);
 }
 
 // Register shortcodes
@@ -404,21 +428,24 @@ add_action('wp_ajax_qb_get_quiz_settings', 'qb_get_quiz_settings');
 function qb_get_quiz_settings() {
     check_ajax_referer('qb_get_settings', 'nonce');
 
-    global $wpdb;
     $quiz_id = intval($_POST['quiz_id']);
-    $settings_table = $wpdb->prefix . 'qb_quiz_settings';
-
-    $settings = $wpdb->get_row($wpdb->prepare(
-        "SELECT * FROM $settings_table WHERE quiz_id = %d",
-        $quiz_id
-    ));
+    require_once plugin_dir_path(__FILE__) . 'includes/db/class-quiz-settings-db.php';
+    $settings_db = new QB_Quiz_Settings_DB();
+    
+    $settings = $settings_db->get_settings($quiz_id);
 
     if ($settings) {
+        // Ensure boolean values are properly handled
+        $settings->is_paginated = (int)$settings->is_paginated;
+        $settings->questions_per_page = (int)$settings->questions_per_page;
+        $settings->show_user_answers = (int)$settings->show_user_answers;
         wp_send_json_success($settings);
     } else {
+        // Return default settings
         wp_send_json_success(array(
             'is_paginated' => 0,
-            'questions_per_page' => 1
+            'questions_per_page' => 1,
+            'show_user_answers' => 0
         ));
     }
 }
@@ -498,3 +525,14 @@ function qb_clear_quiz_answers() {
 
     wp_send_json_success();
 }
+
+function qb_enqueue_scripts() {
+    // Enqueue results styles
+    wp_enqueue_style(
+        'qb-results-styles',
+        plugins_url('assets/css/quiz-results.css', __FILE__),
+        array(),
+        QB_VERSION
+    );
+}
+add_action('wp_enqueue_scripts', 'qb_enqueue_scripts');
