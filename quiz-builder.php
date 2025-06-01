@@ -267,6 +267,7 @@ function qb_handle_quiz_submission() {
 function qb_display_quiz_results() {
     global $wpdb;
     $attempts_table = $wpdb->prefix . 'qb_attempts';
+    $quizzes_table = $wpdb->prefix . 'qb_quizzes';
     
     // Get the random ID from the URL
     $random_id = get_query_var('quiz_result_id');
@@ -275,18 +276,23 @@ function qb_display_quiz_results() {
     }
 
     // Get the attempt using the random ID
-    $attempt = $wpdb->get_row($wpdb->prepare(
-        "SELECT * FROM $attempts_table WHERE random_id = %s",
-        $random_id
-    ));
-
+    $attempt = $wpdb->get_row($wpdb->prepare("SELECT * FROM $attempts_table WHERE random_id = %s", $random_id));
     if (!$attempt) {
         return '<div class="error"><p>Quiz results not found.</p></div>';
     }
 
-    require_once plugin_dir_path(__FILE__) . 'includes/results/class-quiz-results-display.php';
-    $results_display = new QB_Quiz_Results_Display();
-    return $results_display->display_results($attempt->id);
+    // Get the quiz
+    $quiz = $wpdb->get_row($wpdb->prepare("SELECT * FROM $quizzes_table WHERE id = %d", $attempt->quiz_id));
+    if (!$quiz) {
+        return '<div class="error"><p>Quiz not found.</p></div>';
+    }
+
+    // Use output buffering to capture template output
+    $score = $attempt->score;
+    $total_possible_points = $attempt->total_points;
+    ob_start();
+    include QB_PATH . 'templates/quiz-results-html.php';
+    return ob_get_clean();
 }
 
 // Register shortcodes
@@ -329,40 +335,11 @@ function qb_get_attempt_details() {
     $user = $attempt->user_id ? $wpdb->get_row($wpdb->prepare("SELECT display_name FROM $users_table WHERE ID = %d", $attempt->user_id)) : null;
 
     $answers = json_decode($attempt->answers, true);
-    
-    $output = '<div class="attempt-details">';
-    $output .= '<h2>Quiz Attempt Details</h2>';
-    
-    // General information
-    $output .= '<div class="attempt-info">';
-    $output .= '<p><strong>Quiz:</strong> ' . esc_html($quiz->title) . '</p>';
-    $output .= '<p><strong>User:</strong> ' . esc_html($user ? $user->display_name : 'Guest') . '</p>';
-    $output .= '<p><strong>Score:</strong> ' . esc_html($attempt->score) . '/' . esc_html($attempt->total_points) . ' (' . round(($attempt->score / $attempt->total_points) * 100) . '%)</p>';
-    $output .= '<p><strong>Date:</strong> ' . esc_html($attempt->created_at) . '</p>';
-    $output .= '</div>';
-    
-    // Answers table
-    $output .= '<h3>Answers</h3>';
-    $output .= '<table class="widefat fixed striped">';
-    $output .= '<thead><tr><th>Question</th><th>Answer</th><th>Points</th></tr></thead>';
-    $output .= '<tbody>';
 
-    foreach ($answers as $answer) {
-        $question = $wpdb->get_row($wpdb->prepare("SELECT * FROM $questions_table WHERE id = %d", $answer['question_id']));
-        $option = $wpdb->get_row($wpdb->prepare("SELECT * FROM $options_table WHERE id = %d", $answer['option_id']));
-        
-        if ($question && $option) {
-            $output .= '<tr>';
-            $output .= '<td>' . esc_html($question->question) . '</td>';
-            $output .= '<td>' . esc_html($option->option_text) . '</td>';
-            $output .= '<td>' . esc_html($option->points) . '</td>';
-            $output .= '</tr>';
-        }
-    }
-
-    $output .= '</tbody></table>';
-    $output .= '<p style="margin-top: 20px;"><a href="#" class="button" onclick="document.getElementById(\'attempt-details-modal\').style.display=\'none\';">Close</a></p>';
-    $output .= '</div>';
+    // Use output buffering to capture template output
+    ob_start();
+    include QB_PATH . 'templates/attempt-details.php';
+    $output = ob_get_clean();
 
     wp_send_json_success(array('html' => $output));
 }
