@@ -23,6 +23,8 @@ require_once QB_PATH . 'admin/manage-questions-page.php';
 require_once QB_PATH . 'admin/quiz-settings-page.php';
 require_once QB_PATH . 'templates/quiz-display.php';
 require_once QB_PATH . 'templates/quiz-results.php';
+// Include onboarding page
+require_once QB_PATH . 'admin/onboarding.php';
 
 // Register activation hook
 register_activation_hook(__FILE__, 'qb_activate_plugin');
@@ -513,3 +515,118 @@ function qb_enqueue_scripts() {
     );
 }
 add_action('wp_enqueue_scripts', 'qb_enqueue_scripts');
+
+// Remove duplicate onboarding page to the admin menu
+// (Handled in admin/quiz-admin-page.php)
+
+// Redirect to onboarding only on fresh install
+register_activation_hook(__FILE__, function() {
+    add_option('qb_show_onboarding', true);
+});
+
+add_action('admin_init', function() {
+    if (get_option('qb_show_onboarding', false)) {
+        delete_option('qb_show_onboarding');
+        // Only redirect if not already on dashboard page
+        if (!isset($_GET['page']) || $_GET['page'] !== 'quiz-builder') {
+            wp_safe_redirect(admin_url('admin.php?page=quiz-builder'));
+            exit;
+        }
+    }
+});
+
+// Add AJAX handlers for onboarding
+add_action('wp_ajax_qb_onboarding_create_quiz', 'qb_onboarding_create_quiz');
+add_action('wp_ajax_qb_onboarding_add_question', 'qb_onboarding_add_question');
+add_action('wp_ajax_qb_onboarding_add_options', 'qb_onboarding_add_options');
+
+function qb_onboarding_create_quiz() {
+    check_ajax_referer('qb_onboarding_quiz', 'nonce');
+
+    if (!current_user_can('manage_options')) {
+        wp_send_json_error('Unauthorized');
+    }
+
+    $title = sanitize_text_field($_POST['quiz_title']);
+    $description = sanitize_textarea_field($_POST['quiz_description']);
+
+    if (empty($title)) {
+        wp_send_json_error('Quiz title is required');
+    }
+
+    global $wpdb;
+    $table_name = $wpdb->prefix . 'qb_quizzes';
+
+    $result = $wpdb->insert($table_name, [
+        'title' => $title,
+        'description' => $description,
+        'created_at' => current_time('mysql')
+    ]);
+
+    if ($result === false) {
+        wp_send_json_error('Failed to create quiz');
+    }
+
+    wp_send_json_success(['quiz_id' => $wpdb->insert_id]);
+}
+
+function qb_onboarding_add_question() {
+    check_ajax_referer('qb_onboarding_quiz', 'nonce');
+
+    if (!current_user_can('manage_options')) {
+        wp_send_json_error('Unauthorized');
+    }    $quiz_id = intval($_POST['quiz_id']);
+    $question_text = sanitize_text_field($_POST['question_text']);
+    
+    if (empty($question_text)) {
+        wp_send_json_error('Question text is required');
+    }
+
+    global $wpdb;
+    $table_name = $wpdb->prefix . 'qb_questions';    $result = $wpdb->insert($table_name, [
+        'quiz_id' => $quiz_id,
+        'question' => $question_text,
+        'order' => 1
+    ]);
+
+    if ($result === false) {
+        wp_send_json_error('Failed to create question');
+    }
+
+    wp_send_json_success(['question_id' => $wpdb->insert_id]);
+}
+
+function qb_onboarding_add_options() {
+    check_ajax_referer('qb_onboarding_quiz', 'nonce');
+
+    if (!current_user_can('manage_options')) {
+        wp_send_json_error('Unauthorized');
+    }
+
+    $question_id = intval($_POST['question_id']);
+    $options = $_POST['options'];
+
+    if (empty($options) || !is_array($options)) {
+        wp_send_json_error('Options are required');
+    }
+
+    global $wpdb;
+    $table_name = $wpdb->prefix . 'qb_options';
+
+    foreach ($options as $option) {
+        $option_text = sanitize_text_field($option['text']);
+        $points = intval($option['points']);
+
+        if (empty($option_text)) {
+            continue;
+        }
+
+        $wpdb->insert($table_name, [
+            'question_id' => $question_id,
+            'option_text' => $option_text,
+            'points' => $points
+        ]);
+    }
+
+    wp_send_json_success(['message' => 'Options added successfully']);
+}

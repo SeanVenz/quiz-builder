@@ -6,13 +6,13 @@ if (!defined('ABSPATH'))
 add_action('admin_menu', 'qb_add_admin_menu');
 function qb_add_admin_menu()
 {
-    // Main menu page
+    // Main menu page - Dashboard
     add_menu_page(
         'Quiz Builder',
         'Quiz Builder',
         'manage_options',
         'quiz-builder',
-        'qb_manage_questions_page',
+        'qb_dashboard_page',
         'dashicons-welcome-learn-more',
         6
     );
@@ -20,10 +20,19 @@ function qb_add_admin_menu()
     // Submenu pages
     add_submenu_page(
         'quiz-builder',
+        'Dashboard',
+        'Dashboard',
+        'manage_options',
+        'quiz-builder',
+        'qb_dashboard_page'
+    );
+
+    add_submenu_page(
+        'quiz-builder',
         'Manage Quiz',
         'Manage Quiz',
         'manage_options',
-        'quiz-builder',
+        'qb-manage-quiz',
         'qb_manage_questions_page'
     );
 
@@ -269,6 +278,328 @@ function qb_quiz_attempts_page() {
         <?php else: ?>
             <p>No quiz attempts found.</p>
         <?php endif; ?>
+    </div>
+    <?php
+}
+
+function qb_dashboard_page() {
+    global $wpdb;
+    $quizzes_table = $wpdb->prefix . 'qb_quizzes';
+    $questions_table = $wpdb->prefix . 'qb_questions';
+    $attempts_table = $wpdb->prefix . 'qb_attempts';
+    
+    // Check if there are any quizzes
+    $quiz_count = $wpdb->get_var("SELECT COUNT(*) FROM $quizzes_table");
+    
+    if ($quiz_count == 0) {
+        // Show onboarding for new users
+        qb_show_onboarding();
+    } else {
+        // Show dashboard for existing users
+        qb_show_dashboard();
+    }
+}
+
+function qb_show_onboarding() {
+    ?>
+    <div class="wrap">
+        <h1>Welcome to Quiz Builder</h1>
+        <p>Thank you for installing Quiz Builder! Let's create your first quiz to get started.</p>
+
+        <div id="qb-onboarding">
+            <div class="qb-step" id="qb-step-1">
+                <h2>Step 1: Create a Quiz</h2>
+                <p>Enter the title and description for your first quiz.</p>
+                <form id="qb-create-quiz-form">
+                    <?php wp_nonce_field('qb_onboarding_quiz', 'qb_onboarding_nonce'); ?>
+                    <table class="form-table">
+                        <tr>
+                            <th scope="row">Quiz Title</th>
+                            <td><input type="text" id="quiz-title" name="quiz_title" class="regular-text" required></td>
+                        </tr>
+                        <tr>
+                            <th scope="row">Description</th>
+                            <td><textarea id="quiz-description" name="quiz_description" class="large-text" rows="3"></textarea></td>
+                        </tr>
+                    </table>
+                    <button type="button" id="qb-create-quiz-button" class="button button-primary">Create Quiz & Continue</button>
+                </form>
+            </div>
+
+            <div class="qb-step" id="qb-step-2" style="display: none;">
+                <h2>Step 2: Add Questions</h2>
+                <p>Add questions to your quiz.</p>
+                <form id="qb-add-question-form">
+                    <table class="form-table">
+                        <tr>
+                            <th scope="row">Question</th>
+                            <td><input type="text" id="question-text" name="question_text" class="large-text" required></td>
+                        </tr>
+                    </table>
+                    <button type="button" id="qb-add-question-button" class="button button-primary">Add Question & Continue</button>
+                </form>
+            </div>
+
+            <div class="qb-step" id="qb-step-3" style="display: none;">
+                <h2>Step 3: Add Options and Points</h2>
+                <p>Add multiple options for your question.</p>
+                <div id="options-container">
+                    <div class="option-row">
+                        <table class="form-table">
+                            <tr>
+                                <th scope="row">Option 1</th>
+                                <td>
+                                    <input type="text" name="option_text[]" class="regular-text" placeholder="Option text" required>
+                                    <input type="number" name="option_points[]" class="small-text" placeholder="Points" required>
+                                </td>
+                            </tr>
+                        </table>
+                    </div>
+                </div>
+                <button type="button" id="add-option-btn" class="button">Add Another Option</button>
+                <br><br>
+                <button type="button" id="qb-finish-onboarding" class="button button-primary">Finish Setup</button>
+            </div>
+
+            <div id="qb-completion" style="display: none;">
+                <h2>Setup Complete!</h2>
+                <p>Your quiz has been created successfully! You can now view your dashboard.</p>
+                <button type="button" id="qb-go-to-dashboard" class="button button-primary">Go to Dashboard</button>
+            </div>
+        </div>
+
+        <script>
+            jQuery(document).ready(function($) {
+                let currentStep = 1;
+                let createdQuizId = null;
+                let createdQuestionId = null;
+
+                function showStep(step) {
+                    $('.qb-step').hide();
+                    $('#qb-step-' + step).show();
+                }
+
+                // Add option functionality
+                $('#add-option-btn').click(function() {
+                    const optionCount = $('#options-container .option-row').length + 1;
+                    const newOption = `
+                        <div class="option-row">
+                            <table class="form-table">
+                                <tr>
+                                    <th scope="row">Option ${optionCount}</th>
+                                    <td>
+                                        <input type="text" name="option_text[]" class="regular-text" placeholder="Option text" required>
+                                        <input type="number" name="option_points[]" class="small-text" placeholder="Points" required>
+                                        <button type="button" class="button remove-option">Remove</button>
+                                    </td>
+                                </tr>
+                            </table>
+                        </div>
+                    `;
+                    $('#options-container').append(newOption);
+                });
+
+                // Remove option functionality
+                $(document).on('click', '.remove-option', function() {
+                    $(this).closest('.option-row').remove();
+                    // Renumber options
+                    $('#options-container .option-row').each(function(index) {
+                        $(this).find('th').text('Option ' + (index + 1));
+                    });
+                });
+
+                // Step 1: Create Quiz
+                $('#qb-create-quiz-button').click(function() {
+                    const title = $('#quiz-title').val();
+                    const description = $('#quiz-description').val();
+                    
+                    if (!title) {
+                        alert('Please enter a quiz title');
+                        return;
+                    }
+
+                    $.ajax({
+                        url: ajaxurl,
+                        type: 'POST',
+                        data: {
+                            action: 'qb_onboarding_create_quiz',
+                            quiz_title: title,
+                            quiz_description: description,
+                            nonce: $('#qb_onboarding_nonce').val()
+                        },
+                        success: function(response) {
+                            if (response.success) {
+                                createdQuizId = response.data.quiz_id;
+                                currentStep++;
+                                showStep(currentStep);
+                            } else {
+                                alert('Error: ' + response.data);
+                            }
+                        }
+                    });
+                });
+
+                // Step 2: Add Question
+                $('#qb-add-question-button').click(function() {
+                    const questionText = $('#question-text').val();
+                    
+                    if (!questionText) {
+                        alert('Please enter a question');
+                        return;
+                    }
+
+                    $.ajax({
+                        url: ajaxurl,
+                        type: 'POST',
+                        data: {
+                            action: 'qb_onboarding_add_question',
+                            quiz_id: createdQuizId,
+                            question_text: questionText,
+                            nonce: $('#qb_onboarding_nonce').val()
+                        },
+                        success: function(response) {
+                            if (response.success) {
+                                createdQuestionId = response.data.question_id;
+                                currentStep++;
+                                showStep(currentStep);
+                            } else {
+                                alert('Error: ' + response.data);
+                            }
+                        }
+                    });
+                });
+
+                // Step 3: Add Options
+                $('#qb-finish-onboarding').click(function() {
+                    const options = [];
+                    $('#options-container .option-row').each(function() {
+                        const text = $(this).find('input[name="option_text[]"]').val();
+                        const points = $(this).find('input[name="option_points[]"]').val();
+                        if (text && points) {
+                            options.push({text: text, points: points});
+                        }
+                    });
+
+                    if (options.length < 2) {
+                        alert('Please add at least 2 options');
+                        return;
+                    }
+
+                    $.ajax({
+                        url: ajaxurl,
+                        type: 'POST',
+                        data: {
+                            action: 'qb_onboarding_add_options',
+                            question_id: createdQuestionId,
+                            options: options,
+                            nonce: $('#qb_onboarding_nonce').val()
+                        },
+                        success: function(response) {
+                            if (response.success) {
+                                $('#qb-onboarding').hide();
+                                $('#qb-completion').show();
+                            } else {
+                                alert('Error: ' + response.data);
+                            }
+                        }
+                    });
+                });
+
+                // Go to dashboard
+                $('#qb-go-to-dashboard').click(function() {
+                    window.location.reload();
+                });
+            });
+        </script>
+    </div>
+    <?php
+}
+
+function qb_show_dashboard() {
+    global $wpdb;
+    $quizzes_table = $wpdb->prefix . 'qb_quizzes';
+    $questions_table = $wpdb->prefix . 'qb_questions';
+    $attempts_table = $wpdb->prefix . 'qb_attempts';
+    
+    // Get statistics
+    $total_quizzes = $wpdb->get_var("SELECT COUNT(*) FROM $quizzes_table");
+    $total_questions = $wpdb->get_var("SELECT COUNT(*) FROM $questions_table");
+    $total_attempts = $wpdb->get_var("SELECT COUNT(*) FROM $attempts_table");
+    $recent_attempts = $wpdb->get_var("SELECT COUNT(*) FROM $attempts_table WHERE created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)");
+    
+    // Get recent quizzes
+    $recent_quizzes = $wpdb->get_results("SELECT * FROM $quizzes_table ORDER BY created_at DESC LIMIT 5");
+    
+    ?>
+    <div class="wrap">
+        <h1>Quiz Builder Dashboard</h1>
+        
+        <!-- Statistics Cards -->
+        <div class="qb-stats-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin: 20px 0;">
+            <div class="qb-stat-card" style="background: #fff; padding: 20px; border: 1px solid #ddd; border-radius: 5px;">
+                <h3 style="margin: 0 0 10px 0; color: #666;">Total Quizzes</h3>
+                <p style="font-size: 24px; font-weight: bold; margin: 0; color: #2271b1;"><?php echo $total_quizzes; ?></p>
+            </div>
+            <div class="qb-stat-card" style="background: #fff; padding: 20px; border: 1px solid #ddd; border-radius: 5px;">
+                <h3 style="margin: 0 0 10px 0; color: #666;">Total Questions</h3>
+                <p style="font-size: 24px; font-weight: bold; margin: 0; color: #00a32a;"><?php echo $total_questions; ?></p>
+            </div>
+            <div class="qb-stat-card" style="background: #fff; padding: 20px; border: 1px solid #ddd; border-radius: 5px;">
+                <h3 style="margin: 0 0 10px 0; color: #666;">Total Attempts</h3>
+                <p style="font-size: 24px; font-weight: bold; margin: 0; color: #d63638;"><?php echo $total_attempts; ?></p>
+            </div>
+            <div class="qb-stat-card" style="background: #fff; padding: 20px; border: 1px solid #ddd; border-radius: 5px;">
+                <h3 style="margin: 0 0 10px 0; color: #666;">Recent Attempts (7 days)</h3>
+                <p style="font-size: 24px; font-weight: bold; margin: 0; color: #f56e00;"><?php echo $recent_attempts; ?></p>
+            </div>
+        </div>
+        
+        <!-- Quick Actions -->
+        <div class="qb-quick-actions" style="margin: 30px 0;">
+            <h2>Quick Actions</h2>
+            <p>
+                <a href="<?php echo admin_url('admin.php?page=qb-manage-quiz'); ?>" class="button button-primary">Create New Quiz</a>
+                <a href="<?php echo admin_url('admin.php?page=qb-quiz-attempts'); ?>" class="button">View All Attempts</a>
+                <a href="<?php echo admin_url('admin.php?page=qb-quiz-settings'); ?>" class="button">Quiz Settings</a>
+            </p>
+        </div>
+        
+        <!-- Recent Quizzes -->
+        <div class="qb-recent-quizzes">
+            <h2>Recent Quizzes</h2>
+            <?php if ($recent_quizzes): ?>
+                <table class="wp-list-table widefat fixed striped">
+                    <thead>
+                        <tr>
+                            <th>Title</th>
+                            <th>Description</th>
+                            <th>Questions</th>
+                            <th>Created</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php foreach ($recent_quizzes as $quiz): ?>
+                            <?php
+                            $question_count = $wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM $questions_table WHERE quiz_id = %d", $quiz->id));
+                            ?>
+                            <tr>
+                                <td><strong><?php echo esc_html($quiz->title); ?></strong></td>
+                                <td><?php echo esc_html(wp_trim_words($quiz->description, 10)); ?></td>
+                                <td><?php echo $question_count; ?></td>
+                                <td><?php echo date('M j, Y', strtotime($quiz->created_at)); ?></td>
+                                <td>
+                                    <a href="<?php echo admin_url('admin.php?page=qb-manage-quiz&quiz_id=' . $quiz->id); ?>" class="button button-small">Manage</a>
+                                    <a href="<?php echo admin_url('admin.php?page=qb-quiz-settings&quiz_id=' . $quiz->id); ?>" class="button button-small">Settings</a>
+                                </td>
+                            </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+            <?php else: ?>
+                <p>No quizzes created yet. <a href="<?php echo admin_url('admin.php?page=qb-manage-quiz'); ?>">Create your first quiz</a>!</p>
+            <?php endif; ?>
+        </div>
     </div>
     <?php
 }
