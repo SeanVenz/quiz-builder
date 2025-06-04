@@ -306,6 +306,64 @@ function qb_show_onboarding() {
         <h1>Welcome to Quiz Builder</h1>
         <p>Thank you for installing Quiz Builder! Let's create your first quiz to get started.</p>
 
+        <style>
+            .qb-step {
+                background: #fff;
+                border: 1px solid #ddd;
+                border-radius: 5px;
+                padding: 20px;
+                margin: 20px 0;
+                box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            }
+            
+            .qb-step h2 {
+                color: #0073aa;
+                border-bottom: 2px solid #0073aa;
+                padding-bottom: 10px;
+                margin-bottom: 20px;
+            }
+            
+            .notice.notice-success {
+                border-left: 4px solid #00a32a;
+                background: #f0f8ff;
+                animation: slideIn 0.5s ease-out;
+            }
+            
+            @keyframes slideIn {
+                from { opacity: 0; transform: translateY(-10px); }
+                to { opacity: 1; transform: translateY(0); }
+            }
+            
+            #qb-completion {
+                background: #fff;
+                border: 1px solid #0073aa;
+                border-radius: 8px;
+                padding: 30px;
+                text-align: center;
+                box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+                animation: fadeIn 0.8s ease-out;
+            }
+            
+            @keyframes fadeIn {
+                from { opacity: 0; transform: scale(0.95); }
+                to { opacity: 1; transform: scale(1); }
+            }
+            
+            #qb-completion h2 {
+                color: #00a32a;
+                font-size: 28px;
+                margin-bottom: 20px;
+            }
+            
+            .option-row {
+                background: #f9f9f9;
+                border: 1px solid #ddd;
+                border-radius: 4px;
+                padding: 15px;
+                margin: 10px 0;
+            }
+        </style>
+
         <div id="qb-onboarding">
             <div class="qb-step" id="qb-step-1">
                 <h2>Step 1: Create a Quiz</h2>
@@ -357,19 +415,56 @@ function qb_show_onboarding() {
                     </div>
                 </div>
                 <button type="button" id="add-option-btn" class="button">Add Another Option</button>
-                <br><br>
-                <button type="button" id="qb-finish-onboarding" class="button button-primary">Finish Setup</button>
+                <br><br>                <button type="button" id="qb-finish-onboarding" class="button button-primary">Finish Setup</button>
+                <button type="button" id="test-completion" class="button" style="margin-left: 10px; background: #f0ad4e; border-color: #eea236; color: white;">Test Completion Screen</button>
             </div>
-
-            <div id="qb-completion" style="display: none;">
-                <h2>Setup Complete!</h2>
-                <p>Your quiz has been created successfully! You can now view your dashboard.</p>
-                <button type="button" id="qb-go-to-dashboard" class="button button-primary">Go to Dashboard</button>
+        </div>        <!-- Completion screen - moved outside of onboarding container -->
+        <div id="qb-completion" style="display: none; background: white; padding: 30px; border: 2px solid #0073aa; border-radius: 10px; margin: 20px 0; box-shadow: 0 4px 12px rgba(0,0,0,0.15);">
+            <h2 style="color: #00a32a; text-align: center; margin-bottom: 30px;">🎉 Congratulations! Your Quiz is Ready!</h2>
+            <div style="background: #f0f8ff; padding: 25px; border: 1px solid #0073aa; border-radius: 8px; margin: 20px 0;">
+                <h3 style="color: #0073aa; margin-bottom: 15px;">What you've accomplished:</h3>
+                <ul style="margin: 15px 0; padding-left: 25px; line-height: 1.6;">
+                    <li style="margin-bottom: 8px;">✅ Created your first quiz</li>
+                    <li style="margin-bottom: 8px;">✅ Added questions to your quiz</li>
+                    <li style="margin-bottom: 8px;">✅ Set up multiple answer options with point values</li>
+                </ul>
+                
+                <h3 style="color: #0073aa; margin: 25px 0 15px 0;">How to use your quiz:</h3>
+                <p><strong>To display your quiz on any page or post, use this shortcode:</strong></p>
+                <div style="background: #f9f9f9; padding: 20px; border: 2px solid #ddd; border-radius: 5px; font-family: monospace; margin: 15px 0; position: relative;">
+                    <strong id="quiz-shortcode" style="font-size: 16px; color: #333;">[quiz_builder quiz_id="<span id="shortcode-quiz-id" style="color: #d63638; font-weight: bold;"></span>"]</strong>
+                    <button type="button" id="copy-shortcode" class="button button-secondary" style="margin-left: 15px; vertical-align: top;">Copy Shortcode</button>
+                </div>
+                
+                <p><strong>Example usage in PHP templates:</strong></p>
+                <div style="background: #f9f9f9; padding: 20px; border: 2px solid #ddd; border-radius: 5px; font-family: monospace; margin: 15px 0; font-size: 14px; color: #666;">
+                    &lt;?php echo do_shortcode('[quiz_builder quiz_id="<span id="php-quiz-id" style="color: #d63638; font-weight: bold;"></span>"]'); ?&gt;
+                </div>
+                
+                <div style="background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 5px; padding: 15px; margin-top: 20px;">
+                    <p style="margin: 0; font-style: italic; color: #856404;">
+                        💡 <strong>Pro Tip:</strong> You can create more quizzes, manage questions, and view quiz attempts from your dashboard. Your quiz is automatically saved and ready to use!
+                    </p>
+                </div>
             </div>
-        </div>
-
-        <script>
+            
+            <div style="text-align: center; margin-top: 30px;">
+                <button type="button" id="qb-go-to-dashboard" class="button button-primary button-large" style="padding: 12px 30px; font-size: 16px;">Go to Dashboard</button>
+            </div>
+        </div><script>
             jQuery(document).ready(function($) {
+                console.log('Onboarding script loaded');
+                
+                // Check if required elements exist
+                if (!$('#qb-onboarding').length) {
+                    console.error('Onboarding container not found');
+                    return;
+                }
+                if (!$('#qb-completion').length) {
+                    console.error('Completion container not found');
+                    return;
+                }
+                
                 let currentStep = 1;
                 let createdQuizId = null;
                 let createdQuestionId = null;
@@ -406,9 +501,7 @@ function qb_show_onboarding() {
                     $('#options-container .option-row').each(function(index) {
                         $(this).find('th').text('Option ' + (index + 1));
                     });
-                });
-
-                // Step 1: Create Quiz
+                });                // Step 1: Create Quiz
                 $('#qb-create-quiz-button').click(function() {
                     const title = $('#quiz-title').val();
                     const description = $('#quiz-description').val();
@@ -417,6 +510,9 @@ function qb_show_onboarding() {
                         alert('Please enter a quiz title');
                         return;
                     }
+
+                    // Disable the button to prevent double-clicks
+                    $('#qb-create-quiz-button').prop('disabled', true).text('Creating quiz...');
 
                     $.ajax({
                         url: ajaxurl,
@@ -428,18 +524,31 @@ function qb_show_onboarding() {
                             nonce: $('#qb_onboarding_nonce').val()
                         },
                         success: function(response) {
+                            console.log('Quiz creation response:', response);
                             if (response.success) {
                                 createdQuizId = response.data.quiz_id;
-                                currentStep++;
-                                showStep(currentStep);
+                                
+                                // Show success message
+                                const successMsg = $('<div class="notice notice-success" style="margin: 10px 0; padding: 10px;"><p><strong>✅ Quiz created successfully!</strong> Quiz ID: ' + createdQuizId + '</p></div>');
+                                $('#qb-step-1').prepend(successMsg);
+                                
+                                // Move to next step after a brief delay
+                                setTimeout(function() {
+                                    currentStep++;
+                                    showStep(currentStep);
+                                }, 1500);
                             } else {
-                                alert('Error: ' + response.data);
+                                alert('Error: ' + (response.data || 'Unknown error'));
+                                $('#qb-create-quiz-button').prop('disabled', false).text('Create Quiz & Continue');
                             }
+                        },
+                        error: function(xhr, status, error) {
+                            console.error('AJAX error:', xhr, status, error);
+                            alert('Error: Failed to create quiz. Please try again.');
+                            $('#qb-create-quiz-button').prop('disabled', false).text('Create Quiz & Continue');
                         }
                     });
-                });
-
-                // Step 2: Add Question
+                });                // Step 2: Add Question
                 $('#qb-add-question-button').click(function() {
                     const questionText = $('#question-text').val();
                     
@@ -447,6 +556,9 @@ function qb_show_onboarding() {
                         alert('Please enter a question');
                         return;
                     }
+
+                    // Disable the button to prevent double-clicks
+                    $('#qb-add-question-button').prop('disabled', true).text('Adding question...');
 
                     $.ajax({
                         url: ajaxurl,
@@ -458,18 +570,31 @@ function qb_show_onboarding() {
                             nonce: $('#qb_onboarding_nonce').val()
                         },
                         success: function(response) {
+                            console.log('Question response:', response);
                             if (response.success) {
                                 createdQuestionId = response.data.question_id;
-                                currentStep++;
-                                showStep(currentStep);
+                                
+                                // Show success message
+                                const successMsg = $('<div class="notice notice-success" style="margin: 10px 0; padding: 10px;"><p><strong>✅ Question added successfully!</strong> Question ID: ' + createdQuestionId + '</p></div>');
+                                $('#qb-step-2').prepend(successMsg);
+                                
+                                // Move to next step after a brief delay
+                                setTimeout(function() {
+                                    currentStep++;
+                                    showStep(currentStep);
+                                }, 1500);
                             } else {
-                                alert('Error: ' + response.data);
+                                alert('Error: ' + (response.data || 'Unknown error'));
+                                $('#qb-add-question-button').prop('disabled', false).text('Add Question & Continue');
                             }
+                        },
+                        error: function(xhr, status, error) {
+                            console.error('AJAX error:', xhr, status, error);
+                            alert('Error: Failed to add question. Please try again.');
+                            $('#qb-add-question-button').prop('disabled', false).text('Add Question & Continue');
                         }
                     });
-                });
-
-                // Step 3: Add Options
+                });// Step 3: Add Options
                 $('#qb-finish-onboarding').click(function() {
                     const options = [];
                     $('#options-container .option-row').each(function() {
@@ -485,6 +610,9 @@ function qb_show_onboarding() {
                         return;
                     }
 
+                    // Disable the button to prevent double-clicks
+                    $('#qb-finish-onboarding').prop('disabled', true).text('Adding options...');
+
                     $.ajax({
                         url: ajaxurl,
                         type: 'POST',
@@ -493,22 +621,92 @@ function qb_show_onboarding() {
                             question_id: createdQuestionId,
                             options: options,
                             nonce: $('#qb_onboarding_nonce').val()
-                        },
-                        success: function(response) {
+                        },                        success: function(response) {
+                            console.log('Options response:', response);
                             if (response.success) {
-                                $('#qb-onboarding').hide();
-                                $('#qb-completion').show();
+                                // Show success message
+                                const successMsg = $('<div class="notice notice-success" style="margin: 10px 0; padding: 10px;"><p><strong>✅ Options added successfully!</strong> Your quiz is now complete!</p></div>');
+                                $('#qb-step-3').prepend(successMsg);
+                                
+                                console.log('About to show completion screen. Quiz ID:', createdQuizId);
+                                
+                                // Move to completion after a brief delay
+                                setTimeout(function() {
+                                    console.log('Hiding onboarding and showing completion');
+                                    $('#qb-onboarding').hide();
+                                    
+                                    // Populate the quiz ID in the completion message
+                                    $('#shortcode-quiz-id').text(createdQuizId);
+                                    $('#php-quiz-id').text(createdQuizId);
+                                    
+                                    console.log('Showing completion screen');
+                                    $('#qb-completion').fadeIn(500);
+                                }, 1500);
                             } else {
-                                alert('Error: ' + response.data);
+                                console.error('Options creation failed:', response);
+                                alert('Error: ' + (response.data || 'Unknown error'));
+                                $('#qb-finish-onboarding').prop('disabled', false).text('Finish Setup');
                             }
+                        },
+                        error: function(xhr, status, error) {
+                            console.error('AJAX error:', xhr, status, error);
+                            alert('Error: Failed to add options. Please try again.');
+                            $('#qb-finish-onboarding').prop('disabled', false).text('Finish Setup');
                         }
                     });
-                });
-
-                // Go to dashboard
+                });                // Go to dashboard
                 $('#qb-go-to-dashboard').click(function() {
-                    window.location.reload();
+                    console.log('Go to dashboard button clicked');
+                    // Add a small delay to ensure user sees the action
+                    $(this).text('Loading Dashboard...').prop('disabled', true);
+                    setTimeout(function() {
+                        window.location.reload();
+                    }, 500);
+                });// Test completion screen (for debugging)
+                $('#test-completion').click(function() {
+                    console.log('Test completion button clicked');
+                    if (!createdQuizId) {
+                        createdQuizId = 1; // Default for testing
+                        console.log('Using default quiz ID for testing:', createdQuizId);
+                    }
+                    console.log('Hiding onboarding and showing completion (test)');
+                    $('#qb-onboarding').hide();
+                    $('#shortcode-quiz-id').text(createdQuizId);
+                    $('#php-quiz-id').text(createdQuizId);
+                    $('#qb-completion').fadeIn(500);
                 });
+                  // Copy shortcode functionality
+                $('#copy-shortcode').click(function() {
+                    const shortcodeText = $('#quiz-shortcode').text();
+                    
+                    // Try modern clipboard API first, fall back to legacy method
+                    if (navigator.clipboard && window.isSecureContext) {
+                        navigator.clipboard.writeText(shortcodeText).then(() => {
+                            showCopySuccess($(this));
+                        }).catch(() => {
+                            legacyCopy(shortcodeText, $(this));
+                        });
+                    } else {
+                        legacyCopy(shortcodeText, $(this));
+                    }
+                });
+                
+                function legacyCopy(text, button) {
+                    const tempTextarea = $('<textarea>');
+                    $('body').append(tempTextarea);
+                    tempTextarea.val(text).select();
+                    document.execCommand('copy');
+                    tempTextarea.remove();
+                    showCopySuccess(button);
+                }
+                
+                function showCopySuccess(button) {
+                    const originalText = button.text();
+                    button.text('Copied!').addClass('button-primary');
+                    setTimeout(() => {
+                        button.text(originalText).removeClass('button-primary');
+                    }, 2000);
+                }
             });
         </script>
     </div>
