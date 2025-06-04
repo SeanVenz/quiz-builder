@@ -281,20 +281,31 @@ function qb_display_quiz_results() {
     $attempt = $wpdb->get_row($wpdb->prepare("SELECT * FROM $attempts_table WHERE random_id = %s", $random_id));
     if (!$attempt) {
         return '<div class="error"><p>Quiz results not found.</p></div>';
-    }
-
-    // Get the quiz
+    }    // Get the quiz
     $quiz = $wpdb->get_row($wpdb->prepare("SELECT * FROM $quizzes_table WHERE id = %d", $attempt->quiz_id));
     if (!$quiz) {
         return '<div class="error"><p>Quiz not found.</p></div>';
     }
 
-    // Use output buffering to capture template output
-    $score = $attempt->score;
-    $total_possible_points = $attempt->total_points;
-    ob_start();
-    include QB_PATH . 'templates/quiz-results-html.php';
-    return ob_get_clean();
+    // Check if detailed results are enabled
+    require_once QB_PATH . 'includes/db/class-quiz-settings-db.php';
+    $settings_db = new QB_Quiz_Settings_DB();
+    $settings = $settings_db->get_settings($attempt->quiz_id);
+    
+    // Use detailed results if enabled, otherwise use basic template
+    if ($settings && $settings->show_user_answers) {
+        // Use the detailed results display class
+        require_once QB_PATH . 'includes/results/class-quiz-results-display.php';
+        $results_display = new QB_Quiz_Results_Display();
+        return $results_display->display_results($attempt->id);
+    } else {
+        // Use basic template output
+        $score = $attempt->score;
+        $total_possible_points = $attempt->total_points;
+        ob_start();
+        include QB_PATH . 'templates/quiz-results-html.php';
+        return ob_get_clean();
+    }
 }
 
 // Register shortcodes
@@ -538,7 +549,9 @@ add_action('admin_init', function() {
 // Add AJAX handlers for onboarding
 add_action('wp_ajax_qb_onboarding_create_quiz', 'qb_onboarding_create_quiz');
 add_action('wp_ajax_qb_onboarding_add_question', 'qb_onboarding_add_question');
+add_action('wp_ajax_qb_onboarding_add_questions', 'qb_onboarding_add_questions');
 add_action('wp_ajax_qb_onboarding_add_options', 'qb_onboarding_add_options');
+add_action('wp_ajax_qb_onboarding_add_all_options', 'qb_onboarding_add_all_options');
 
 function qb_onboarding_create_quiz() {
     check_ajax_referer('qb_onboarding_quiz', 'nonce');
@@ -629,4 +642,100 @@ function qb_onboarding_add_options() {
     }
 
     wp_send_json_success(['message' => 'Options added successfully']);
+}
+
+// New AJAX handler for adding multiple questions
+function qb_onboarding_add_questions() {
+    check_ajax_referer('qb_onboarding_quiz', 'nonce');
+
+    if (!current_user_can('manage_options')) {
+        wp_send_json_error('Unauthorized');
+    }
+
+    $quiz_id = intval($_POST['quiz_id']);
+    $questions = $_POST['questions'];
+    
+    if (empty($questions) || !is_array($questions)) {
+        wp_send_json_error('Questions are required');
+    }
+
+    global $wpdb;
+    $table_name = $wpdb->prefix . 'qb_questions';
+    $question_ids = [];
+
+    foreach ($questions as $index => $question_text) {
+        $question_text = sanitize_text_field($question_text);
+        
+        if (empty($question_text)) {
+            continue;
+        }
+
+        $result = $wpdb->insert($table_name, [
+            'quiz_id' => $quiz_id,
+            'question' => $question_text,
+            'order' => $index + 1
+        ]);
+
+        if ($result !== false) {
+            $question_ids[] = $wpdb->insert_id;
+        }
+    }
+
+    if (empty($question_ids)) {
+        wp_send_json_error('Failed to create questions');
+    }
+
+    wp_send_json_success(['question_ids' => $question_ids]);
+}
+
+// New AJAX handler for adding options to all questions
+function qb_onboarding_add_all_options() {
+    check_ajax_referer('qb_onboarding_quiz', 'nonce');
+
+    if (!current_user_can('manage_options')) {
+        wp_send_json_error('Unauthorized');
+    }
+
+    $question_options = $_POST['question_options'];
+
+    if (empty($question_options) || !is_array($question_options)) {
+        wp_send_json_error('Question options are required');
+    }
+
+    global $wpdb;
+    $table_name = $wpdb->prefix . 'qb_options';
+    $total_options_added = 0;
+
+    foreach ($question_options as $question_id => $options) {
+        $question_id = intval($question_id);
+        
+        if (!is_array($options)) {
+            continue;
+        }
+
+        foreach ($options as $option) {
+            $option_text = sanitize_text_field($option['text']);
+            $points = intval($option['points']);
+
+            if (empty($option_text)) {
+                continue;
+            }
+
+            $result = $wpdb->insert($table_name, [
+                'question_id' => $question_id,
+                'option_text' => $option_text,
+                'points' => $points
+            ]);
+
+            if ($result !== false) {
+                $total_options_added++;
+            }
+        }
+    }
+
+    if ($total_options_added === 0) {
+        wp_send_json_error('Failed to add options');
+    }
+
+    wp_send_json_success(['message' => 'Options added successfully', 'total_options' => $total_options_added]);
 }
