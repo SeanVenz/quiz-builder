@@ -16,25 +16,22 @@ class QB_Quiz_Settings_DB {
      */
     public function update_table() {
         global $wpdb;
-        $charset_collate = $wpdb->get_charset_collate();
-
-        // SQL for creating the table
+        $charset_collate = $wpdb->get_charset_collate();        // SQL for creating the table
         $sql = "CREATE TABLE IF NOT EXISTS {$this->table_name} (
             id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
             quiz_id bigint(20) NOT NULL,
             is_paginated tinyint(1) NOT NULL DEFAULT 0,
             questions_per_page int(11) NOT NULL DEFAULT 1,
             show_user_answers tinyint(1) NOT NULL DEFAULT 0,
+            allow_pdf_export tinyint(1) NOT NULL DEFAULT 0,
             PRIMARY KEY  (id),
             UNIQUE KEY quiz_id (quiz_id)
         ) $charset_collate;";
 
         // Use dbDelta for table creation/update
         require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
-        dbDelta($sql);
-
-        // Verify the column exists
-        $column_exists = $wpdb->get_results($wpdb->prepare(
+        dbDelta($sql);        // Verify the show_user_answers column exists
+        $show_answers_exists = $wpdb->get_results($wpdb->prepare(
             "SELECT COLUMN_NAME 
             FROM INFORMATION_SCHEMA.COLUMNS 
             WHERE TABLE_SCHEMA = %s
@@ -45,10 +42,28 @@ class QB_Quiz_Settings_DB {
         ));
 
         // If column doesn't exist, add it
-        if (empty($column_exists)) {
+        if (empty($show_answers_exists)) {
             $wpdb->query("ALTER TABLE {$this->table_name} 
                 ADD COLUMN show_user_answers tinyint(1) NOT NULL DEFAULT 0 
                 AFTER questions_per_page");
+        }
+
+        // Verify the allow_pdf_export column exists
+        $pdf_export_exists = $wpdb->get_results($wpdb->prepare(
+            "SELECT COLUMN_NAME 
+            FROM INFORMATION_SCHEMA.COLUMNS 
+            WHERE TABLE_SCHEMA = %s
+            AND TABLE_NAME = %s
+            AND COLUMN_NAME = 'allow_pdf_export'",
+            DB_NAME,
+            $this->table_name
+        ));
+
+        // If column doesn't exist, add it
+        if (empty($pdf_export_exists)) {
+            $wpdb->query("ALTER TABLE {$this->table_name} 
+                ADD COLUMN allow_pdf_export tinyint(1) NOT NULL DEFAULT 0 
+                AFTER show_user_answers");
         }
 
         // Log any database errors
@@ -70,12 +85,12 @@ class QB_Quiz_Settings_DB {
     /**
      * Save settings for a quiz
      */
-    public function save_settings($quiz_id, $settings) {
-        // Ensure all required fields are set with defaults
+    public function save_settings($quiz_id, $settings) {        // Ensure all required fields are set with defaults
         $settings = wp_parse_args($settings, array(
             'is_paginated' => 0,
             'questions_per_page' => 1,
-            'show_user_answers' => 0
+            'show_user_answers' => 0,
+            'allow_pdf_export' => 0
         ));
 
         $existing = $this->get_settings($quiz_id);

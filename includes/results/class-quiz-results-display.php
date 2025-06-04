@@ -41,11 +41,14 @@ class QB_Quiz_Results_Display {
             $attempt->score,
             $attempt->total_points,
             $percentage
-        );
-
-        // Only show detailed results if enabled in settings
+        );        // Only show detailed results if enabled in settings
         if ($settings && $settings->show_user_answers) {
             $output .= $this->get_detailed_results($attempt_id);
+        }
+
+        // Add PDF export button if enabled in settings
+        if ($settings && $settings->allow_pdf_export) {
+            $output .= $this->get_pdf_export_button($attempt_id);
         }
         
         $output .= '</div>';
@@ -119,12 +122,10 @@ class QB_Quiz_Results_Display {
             WHERE id = %d",
             $quiz_id
         ));
-    }
-
-    /**
+    }    /**
      * Get attempt answers with question and option details
      */
-    private function get_attempt_answers($attempt_id) {
+    public function get_attempt_answers($attempt_id) {
         error_log('QB Debug: Starting get_attempt_answers with ID: ' . $attempt_id);
         
         $attempt = $this->get_attempt_details($attempt_id);
@@ -241,4 +242,29 @@ class QB_Quiz_Results_Display {
 
         return $results;
     }
-} 
+
+    /**
+     * Generate PDF export button
+     */
+    private function get_pdf_export_button($attempt_id) {
+        $attempt = $this->get_attempt_details($attempt_id);
+        if (!$attempt) {
+            return '';
+        }
+
+        $export_url = admin_url('admin-ajax.php') . '?' . http_build_query([
+            'action' => 'qb_export_pdf',
+            'attempt_id' => $attempt_id,
+            'nonce' => wp_create_nonce('qb_pdf_export_' . $attempt_id)
+        ]);
+
+        return sprintf(
+            '<div class="quiz-pdf-export" style="margin-top: 20px;">
+                <a href="%s" class="button button-primary" target="_blank">
+                    📄 Download PDF Results
+                </a>
+            </div>',
+            esc_url($export_url)
+        );
+    }
+}

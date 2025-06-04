@@ -739,3 +739,212 @@ function qb_onboarding_add_all_options() {
 
     wp_send_json_success(['message' => 'Options added successfully', 'total_options' => $total_options_added]);
 }
+
+// Add AJAX handler for PDF export
+add_action('wp_ajax_qb_export_pdf', 'qb_export_pdf');
+add_action('wp_ajax_nopriv_qb_export_pdf', 'qb_export_pdf');
+
+function qb_export_pdf() {
+    $attempt_id = intval($_GET['attempt_id']);
+    $nonce = sanitize_text_field($_GET['nonce']);
+    
+    // Verify nonce
+    if (!wp_verify_nonce($nonce, 'qb_pdf_export_' . $attempt_id)) {
+        wp_die('Security check failed');
+    }
+    
+    global $wpdb;
+    $attempts_table = $wpdb->prefix . 'qb_attempts';
+    
+    // Get attempt details
+    $attempt = $wpdb->get_row($wpdb->prepare("SELECT * FROM $attempts_table WHERE id = %d", $attempt_id));
+    if (!$attempt) {
+        wp_die('Quiz attempt not found');
+    }
+    
+    // Get quiz details
+    $quiz = $wpdb->get_row($wpdb->prepare("SELECT * FROM {$wpdb->prefix}qb_quizzes WHERE id = %d", $attempt->quiz_id));
+    if (!$quiz) {
+        wp_die('Quiz not found');
+    }
+    
+    // Check if PDF export is enabled for this quiz
+    require_once QB_PATH . 'includes/db/class-quiz-settings-db.php';
+    $settings_db = new QB_Quiz_Settings_DB();
+    $settings = $settings_db->get_settings($attempt->quiz_id);
+    
+    if (!$settings || !$settings->allow_pdf_export) {
+        wp_die('PDF export is not enabled for this quiz');
+    }
+    
+    // Generate PDF
+    qb_generate_pdf($attempt, $quiz);
+}
+
+/**
+ * Generate PDF from quiz results
+ */
+function qb_generate_pdf($attempt, $quiz) {
+    // Get quiz results data
+    require_once QB_PATH . 'includes/results/class-quiz-results-display.php';
+    $results_display = new QB_Quiz_Results_Display();
+    $answers = $results_display->get_attempt_answers($attempt->id);
+    
+    $percentage = round(($attempt->score / $attempt->total_points) * 100);
+    $current_date = current_time('Y-m-d H:i:s');
+    
+    // Create PDF content using HTML
+    $html_content = qb_generate_pdf_html($quiz, $attempt, $answers, $percentage, $current_date);
+    
+    // Check if we can use DomPDF or similar library
+    if (class_exists('Dompdf\Dompdf')) {
+        qb_generate_pdf_with_dompdf($html_content, $quiz->title);
+    } else {
+        // Fallback to basic HTML output with print styles
+        qb_generate_pdf_fallback($html_content, $quiz->title);
+    }
+}
+
+/**
+ * Generate HTML content for PDF
+ */
+function qb_generate_pdf_html($quiz, $attempt, $answers, $percentage, $current_date) {
+    ob_start();
+    ?>
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="UTF-8">
+        <title><?php echo esc_html($quiz->title); ?> - Quiz Results</title>
+        <style>
+            body {
+                font-family: Arial, sans-serif;
+                margin: 20px;
+                color: #333;
+            }
+            .header {
+                text-align: center;
+                margin-bottom: 30px;
+                border-bottom: 2px solid #ddd;
+                padding-bottom: 20px;
+            }
+            .header h1 {
+                color: #2271b1;
+                margin: 0;
+            }
+            .score-summary {
+                background: #f9f9f9;
+                padding: 20px;
+                border-radius: 5px;
+                margin-bottom: 30px;
+                text-align: center;
+            }
+            .score-summary .score {
+                font-size: 24px;
+                font-weight: bold;
+                color: #2271b1;
+            }
+            .answers-table {
+                width: 100%;
+                border-collapse: collapse;
+                margin-bottom: 30px;
+            }
+            .answers-table th,
+            .answers-table td {
+                border: 1px solid #ddd;
+                padding: 12px;
+                text-align: left;
+            }
+            .answers-table th {
+                background-color: #f5f5f5;
+                font-weight: bold;
+            }
+            .correct-answer {
+                background-color: #d4edda;
+            }
+            .incorrect-answer {
+                background-color: #f8d7da;
+            }
+            .footer {
+                margin-top: 30px;
+                text-align: center;
+                font-size: 12px;
+                color: #666;
+                border-top: 1px solid #ddd;
+                padding-top: 20px;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="header">
+            <h1><?php echo esc_html($quiz->title); ?></h1>
+            <p>Quiz Results Report</p>
+        </div>
+        
+        <div class="score-summary">
+            <div class="score">Final Score: <?php echo $attempt->score; ?> / <?php echo $attempt->total_points; ?> (<?php echo $percentage; ?>%)</div>
+            <p>Date Completed: <?php echo esc_html($current_date); ?></p>
+        </div>
+        
+        <?php if (!empty($answers)): ?>
+        <h2>Your Answers</h2>
+        <table class="answers-table">
+            <thead>
+                <tr>
+                    <th>Question</th>
+                    <th>Your Answer</th>
+                    <th>Correct Answer</th>
+                    <th>Result</th>
+                </tr>
+            </thead>
+            <tbody>
+                <?php foreach ($answers as $answer): 
+                    $is_correct = $answer->selected_option == $answer->correct_option;
+                ?>
+                <tr class="<?php echo $is_correct ? 'correct-answer' : 'incorrect-answer'; ?>">
+                    <td><?php echo esc_html($answer->question_text); ?></td>
+                    <td><?php echo esc_html($answer->selected_text); ?></td>
+                    <td><?php echo esc_html($answer->correct_text); ?></td>
+                    <td><?php echo $is_correct ? '✓ Correct' : '✗ Incorrect'; ?></td>
+                </tr>
+                <?php endforeach; ?>
+            </tbody>
+        </table>
+        <?php endif; ?>
+        
+        <div class="footer">
+            <p>Generated on <?php echo current_time('F j, Y \a\t g:i A'); ?></p>
+            <p>Quiz Builder Plugin - WordPress</p>
+        </div>
+    </body>
+    </html>
+    <?php
+    return ob_get_clean();
+}
+
+/**
+ * Fallback PDF generation using HTML with print-friendly styles
+ */
+function qb_generate_pdf_fallback($html_content, $quiz_title) {
+    // Set headers for download
+    $filename = sanitize_file_name($quiz_title . '_results_' . date('Y-m-d_H-i-s') . '.html');
+    
+    header('Content-Type: text/html; charset=UTF-8');
+    header('Content-Disposition: attachment; filename="' . $filename . '"');
+    header('Cache-Control: no-cache, must-revalidate');
+    header('Expires: 0');
+      // Add print styles to the HTML
+    $print_styles = '<style media="print">
+        @page { margin: 1in; }
+        body { -webkit-print-color-adjust: exact; }
+        .header { page-break-after: avoid; }
+        .answers-table { page-break-inside: avoid; }
+        tr { page-break-inside: avoid; }
+    </style>';
+    
+    // Insert print styles before closing head tag
+    $html_content = str_replace('</head>', $print_styles . '</head>', $html_content);
+    
+    echo $html_content;
+    exit;
+}
