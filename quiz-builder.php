@@ -796,13 +796,11 @@ function qb_generate_pdf($attempt, $quiz) {
     // Create PDF content using HTML
     $html_content = qb_generate_pdf_html($quiz, $attempt, $answers, $percentage, $current_date);
     
-    // Check if we can use DomPDF or similar library
-    if (class_exists('Dompdf\Dompdf')) {
-        qb_generate_pdf_with_dompdf($html_content, $quiz->title);
-    } else {
-        // Fallback to basic HTML output with print styles
-        qb_generate_pdf_fallback($html_content, $quiz->title);
-    }
+    // Use the PDF manager for proper PDF generation
+    require_once QB_PATH . 'includes/class-pdf-manager.php';
+    $filename = preg_replace('/[^a-zA-Z0-9\-_]/', '_', $quiz->title) . '_results_' . date('Y-m-d_H-i-s') . '.pdf';
+    
+    QB_PDF_Manager::generate_pdf($html_content, $filename, $quiz->title . ' - Quiz Results');
 }
 
 /**
@@ -920,31 +918,4 @@ function qb_generate_pdf_html($quiz, $attempt, $answers, $percentage, $current_d
     </html>
     <?php
     return ob_get_clean();
-}
-
-/**
- * Fallback PDF generation using HTML with print-friendly styles
- */
-function qb_generate_pdf_fallback($html_content, $quiz_title) {
-    // Set headers for download
-    $filename = sanitize_file_name($quiz_title . '_results_' . date('Y-m-d_H-i-s') . '.html');
-    
-    header('Content-Type: text/html; charset=UTF-8');
-    header('Content-Disposition: attachment; filename="' . $filename . '"');
-    header('Cache-Control: no-cache, must-revalidate');
-    header('Expires: 0');
-      // Add print styles to the HTML
-    $print_styles = '<style media="print">
-        @page { margin: 1in; }
-        body { -webkit-print-color-adjust: exact; }
-        .header { page-break-after: avoid; }
-        .answers-table { page-break-inside: avoid; }
-        tr { page-break-inside: avoid; }
-    </style>';
-    
-    // Insert print styles before closing head tag
-    $html_content = str_replace('</head>', $print_styles . '</head>', $html_content);
-    
-    echo $html_content;
-    exit;
 }
