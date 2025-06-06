@@ -15,9 +15,7 @@ function qb_add_admin_menu()
         'qb_dashboard_page',
         'dashicons-welcome-learn-more',
         6
-    );
-
-    // Submenu pages
+    );    // Submenu pages
     add_submenu_page(
         'quiz-builder',
         'Dashboard',
@@ -25,6 +23,16 @@ function qb_add_admin_menu()
         'manage_options',
         'quiz-builder',
         'qb_dashboard_page'
+    );
+
+    // Getting Started - always available
+    add_submenu_page(
+        'quiz-builder',
+        'Getting Started',
+        'Getting Started',
+        'manage_options',
+        'qb-getting-started',
+        'qb_getting_started_page'
     );
 
     add_submenu_page(
@@ -288,15 +296,18 @@ function qb_dashboard_page() {
     $questions_table = $wpdb->prefix . 'qb_questions';
     $attempts_table = $wpdb->prefix . 'qb_attempts';
     
-    // Check if there are any quizzes
+    // Check onboarding completion status
+    $onboarding_completed = get_option('qb_onboarding_completed', false);
     $quiz_count = $wpdb->get_var("SELECT COUNT(*) FROM $quizzes_table");
     
-    if ($quiz_count == 0) {
-        // Show onboarding for new users
-        qb_show_onboarding();
-    } else {
-        // Show dashboard for existing users
+    // Always show dashboard if onboarding is completed, regardless of quiz count
+    // This allows users to return to dashboard after completing onboarding
+    if ($onboarding_completed || $quiz_count > 0) {
+        // Show dashboard for users who have completed onboarding or have existing quizzes
         qb_show_dashboard();
+    } else {
+        // Show onboarding only for fresh installations with no quizzes and incomplete onboarding
+        qb_show_onboarding();
     }
 }
 
@@ -307,10 +318,10 @@ function qb_show_onboarding() {
     // Enqueue our separated CSS and JavaScript files
     wp_enqueue_style('qb-onboarding-css', $plugin_url . '/assets/css/onboarding.css', array(), '1.0.0');
     wp_enqueue_script('qb-onboarding-js', $plugin_url . '/assets/js/onboarding.js', array('jquery'), '1.0.0', true);
-    
-    // Localize script for AJAX
+      // Localize script for AJAX
     wp_localize_script('qb-onboarding-js', 'qb_ajax', array(
         'ajax_url' => admin_url('admin-ajax.php'),
+        'admin_url' => admin_url(),
         'nonce' => wp_create_nonce('qb_onboarding_quiz')
     ));
     

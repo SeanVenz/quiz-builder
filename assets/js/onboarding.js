@@ -305,16 +305,35 @@ jQuery(document).ready(function($) {
                 $('#qb-finish-onboarding').prop('disabled', false).text('Finish Setup');
             }
         });
-    });
-
-    // Go to dashboard
+    });    // Go to dashboard
     $('#qb-go-to-dashboard').click(function() {
         console.log('Go to dashboard button clicked');
         // Add a small delay to ensure user sees the action
         $(this).text('Loading Dashboard...').prop('disabled', true);
-        setTimeout(function() {
-            window.location.reload();
-        }, 500);
+        
+        // Mark onboarding as completed and redirect to dashboard
+        $.ajax({
+            url: qb_ajax.ajax_url,
+            type: 'POST',
+            data: {
+                action: 'qb_complete_onboarding',
+                nonce: qb_ajax.nonce
+            },
+            success: function(response) {
+                console.log('Onboarding completion response:', response);
+                if (response.success && response.data.redirect_url) {
+                    window.location.href = response.data.redirect_url;
+                } else {
+                    // Fallback to dashboard
+                    window.location.href = qb_ajax.admin_url + 'admin.php?page=quiz-builder';
+                }
+            },
+            error: function(xhr, status, error) {
+                console.error('Error completing onboarding:', error);
+                // Fallback to dashboard even on error
+                window.location.href = qb_ajax.admin_url + 'admin.php?page=quiz-builder';
+            }
+        });
     });
 
     // Test completion screen (for debugging)

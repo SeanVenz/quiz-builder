@@ -71,6 +71,12 @@ function qb_activate_plugin() {
     // Set version
     update_option('qb_version', QB_VERSION);
     
+    // Mark as fresh installation (user hasn't completed onboarding)
+    update_option('qb_onboarding_completed', false);
+    
+    // Set redirect flag for fresh installation
+    update_option('qb_redirect_to_getting_started', true);
+    
     // Clear any cached data
     wp_cache_flush();
 }
@@ -545,6 +551,51 @@ add_action('admin_init', function() {
         }
     }
 });
+
+// Redirect to Getting Started on fresh installation
+add_action('admin_init', 'qb_check_fresh_installation_redirect');
+
+function qb_check_fresh_installation_redirect() {
+    // Only redirect if user is admin and we haven't completed onboarding
+    if (!current_user_can('manage_options')) {
+        return;
+    }
+    
+    // Check if we should redirect to getting started
+    $should_redirect = get_option('qb_redirect_to_getting_started', false);
+    $onboarding_completed = get_option('qb_onboarding_completed', false);
+    
+    if ($should_redirect && !$onboarding_completed) {
+        // Don't redirect if we're already on getting started page
+        $current_page = isset($_GET['page']) ? $_GET['page'] : '';
+        if ($current_page !== 'qb-getting-started') {
+            // Clear the redirect flag
+            delete_option('qb_redirect_to_getting_started');
+            
+            // Redirect to Getting Started
+            wp_safe_redirect(admin_url('admin.php?page=qb-getting-started'));
+            exit;
+        }
+    }
+}
+
+// Add logic to mark onboarding as completed
+add_action('wp_ajax_qb_complete_onboarding', 'qb_complete_onboarding');
+
+function qb_complete_onboarding() {
+    check_ajax_referer('qb_onboarding_quiz', 'nonce');
+    
+    if (!current_user_can('manage_options')) {
+        wp_send_json_error('Unauthorized');
+    }
+    
+    // Mark onboarding as completed
+    update_option('qb_onboarding_completed', true);
+    
+    wp_send_json_success(array(
+        'redirect_url' => admin_url('admin.php?page=quiz-builder')
+    ));
+}
 
 // Add AJAX handlers for onboarding
 add_action('wp_ajax_qb_onboarding_create_quiz', 'qb_onboarding_create_quiz');

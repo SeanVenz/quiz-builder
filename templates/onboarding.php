@@ -112,7 +112,6 @@
             </div>
             
             <button type="button" id="qb-finish-onboarding" class="button button-primary">Finish Setup</button>
-            <button type="button" id="test-completion" class="button" style="margin-left: 10px; background: #f0ad4e; border-color: #eea236; color: white;">Test Completion Screen</button>
         </div>
     </div>
 
