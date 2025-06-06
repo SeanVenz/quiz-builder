@@ -44,14 +44,14 @@ function qb_add_admin_menu()
         'qb_manage_questions_page'
     );
 
-    add_submenu_page(
-        'quiz-builder',
-        'Quiz Settings',
-        'Settings',
-        'manage_options',
-        'qb-quiz-settings',
-        'qb_quiz_settings_page'
-    );
+    // add_submenu_page(
+    //     'quiz-builder',
+    //     'Quiz Settings',
+    //     'Settings',
+    //     'manage_options',
+    //     'qb-quiz-settings',
+    //     'qb_quiz_settings_page'
+    // );
 
     add_submenu_page(
         'quiz-builder',
@@ -162,7 +162,7 @@ function qb_quiz_attempts_page() {
         <?php if ($attempts): ?>
             <div class="tablenav top">
                 <div class="alignleft actions">
-                    <a href="<?php echo wp_nonce_url(admin_url('admin-ajax.php?action=qb_export_attempts_csv'), 'qb_export_csv', 'nonce'); ?>" class="button">Export to CSV</a>
+                    <!-- <a href="<?php echo wp_nonce_url(admin_url('admin-ajax.php?action=qb_export_attempts_csv'), 'qb_export_csv', 'nonce'); ?>" class="button">Export to CSV</a> -->
                 </div>
                 <br class="clear">
             </div>
