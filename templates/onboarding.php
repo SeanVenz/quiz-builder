@@ -149,13 +149,13 @@
                 <p style="margin-bottom: 15px; opacity: 0.9;">Copy and paste this shortcode into any post or page:</p>
                 
                 <div class="shortcode-display">
-                    <span id="quiz-shortcode">[quiz_builder id="<span id="shortcode-quiz-id">1</span>"]</span>
+                    <span id="quiz-shortcode">[quiz_builder quiz_id="<span id="shortcode-quiz-id">1</span>"]</span>
                 </div>
                 <button type="button" id="copy-shortcode" class="copy-button">📋 Copy Shortcode</button>
                 
                 <h4 style="margin-top: 25px; margin-bottom: 10px;">Or use in PHP templates:</h4>
                 <div class="php-example">
-                    <span id="php-code">&lt;?php echo do_shortcode('[quiz_builder id="<span id="php-quiz-id">1</span>"]'); ?&gt;</span>
+                    <span id="php-code">&lt;?php echo do_shortcode('[quiz_builder quiz_id="<span id="php-quiz-id">1</span>"]'); ?&gt;</span>
                 </div>
                 <button type="button" id="copy-php" class="copy-button">📋 Copy PHP Code</button>
             </div>

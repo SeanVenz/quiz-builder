@@ -24,20 +24,22 @@ class QB_Quiz_Settings_DB {
             questions_per_page int(11) NOT NULL DEFAULT 1,
             show_user_answers tinyint(1) NOT NULL DEFAULT 0,
             allow_pdf_export tinyint(1) NOT NULL DEFAULT 0,
+            randomize_questions tinyint(1) NOT NULL DEFAULT 0,
+            randomize_answers tinyint(1) NOT NULL DEFAULT 0,
             PRIMARY KEY  (id),
             UNIQUE KEY quiz_id (quiz_id)
-        ) $charset_collate;";
-
-        // Use dbDelta for table creation/update
-        require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
-        dbDelta($sql);        // Verify the show_user_answers column exists
+        ) $charset_collate;";        // Use dbDelta for table creation/update
+        if (!function_exists('dbDelta')) {
+            require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
+        }
+        dbDelta($sql);
         $show_answers_exists = $wpdb->get_results($wpdb->prepare(
             "SELECT COLUMN_NAME 
             FROM INFORMATION_SCHEMA.COLUMNS 
             WHERE TABLE_SCHEMA = %s
             AND TABLE_NAME = %s
             AND COLUMN_NAME = 'show_user_answers'",
-            DB_NAME,
+            $wpdb->dbname,
             $this->table_name
         ));
 
@@ -55,7 +57,7 @@ class QB_Quiz_Settings_DB {
             WHERE TABLE_SCHEMA = %s
             AND TABLE_NAME = %s
             AND COLUMN_NAME = 'allow_pdf_export'",
-            DB_NAME,
+            $wpdb->dbname,
             $this->table_name
         ));
 
@@ -64,6 +66,42 @@ class QB_Quiz_Settings_DB {
             $wpdb->query("ALTER TABLE {$this->table_name} 
                 ADD COLUMN allow_pdf_export tinyint(1) NOT NULL DEFAULT 0 
                 AFTER show_user_answers");
+        }
+
+        // Verify the randomize_questions column exists
+        $randomize_questions_exists = $wpdb->get_results($wpdb->prepare(
+            "SELECT COLUMN_NAME 
+            FROM INFORMATION_SCHEMA.COLUMNS 
+            WHERE TABLE_SCHEMA = %s
+            AND TABLE_NAME = %s
+            AND COLUMN_NAME = 'randomize_questions'",
+            $wpdb->dbname,
+            $this->table_name
+        ));
+
+        // If column doesn't exist, add it
+        if (empty($randomize_questions_exists)) {
+            $wpdb->query("ALTER TABLE {$this->table_name} 
+                ADD COLUMN randomize_questions tinyint(1) NOT NULL DEFAULT 0 
+                AFTER allow_pdf_export");
+        }
+
+        // Verify the randomize_answers column exists
+        $randomize_answers_exists = $wpdb->get_results($wpdb->prepare(
+            "SELECT COLUMN_NAME 
+            FROM INFORMATION_SCHEMA.COLUMNS 
+            WHERE TABLE_SCHEMA = %s
+            AND TABLE_NAME = %s
+            AND COLUMN_NAME = 'randomize_answers'",
+            $wpdb->dbname,
+            $this->table_name
+        ));
+
+        // If column doesn't exist, add it
+        if (empty($randomize_answers_exists)) {
+            $wpdb->query("ALTER TABLE {$this->table_name} 
+                ADD COLUMN randomize_answers tinyint(1) NOT NULL DEFAULT 0 
+                AFTER randomize_questions");
         }
 
         // Log any database errors
@@ -80,18 +118,21 @@ class QB_Quiz_Settings_DB {
             "SELECT * FROM {$this->table_name} WHERE quiz_id = %d",
             $quiz_id
         ));
-    }
-
-    /**
+    }    /**
      * Save settings for a quiz
      */
-    public function save_settings($quiz_id, $settings) {        // Ensure all required fields are set with defaults
-        $settings = wp_parse_args($settings, array(
+    public function save_settings($quiz_id, $settings) {
+        // Ensure all required fields are set with defaults
+        $defaults = array(
             'is_paginated' => 0,
             'questions_per_page' => 1,
             'show_user_answers' => 0,
-            'allow_pdf_export' => 0
-        ));
+            'allow_pdf_export' => 0,
+            'randomize_questions' => 0,
+            'randomize_answers' => 0
+        );
+        
+        $settings = array_merge($defaults, $settings);
 
         $existing = $this->get_settings($quiz_id);
         

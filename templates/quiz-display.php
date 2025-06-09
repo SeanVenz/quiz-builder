@@ -11,6 +11,34 @@ if (!defined('ABSPATH')) {
  * Display quiz template
  */
 function qb_get_quiz_display($quiz, $questions, $options, $settings) {
+    // Apply randomization if enabled
+    if (isset($settings->randomize_questions) && $settings->randomize_questions) {
+        shuffle($questions);
+    }
+    
+    // If answer randomization is enabled, randomize options for each question
+    if (isset($settings->randomize_answers) && $settings->randomize_answers) {
+        // Group options by question_id for easier manipulation
+        $options_by_question = array();
+        foreach ($options as $option) {
+            if (!isset($options_by_question[$option->question_id])) {
+                $options_by_question[$option->question_id] = array();
+            }
+            $options_by_question[$option->question_id][] = $option;
+        }
+        
+        // Randomize options for each question
+        foreach ($options_by_question as $question_id => $question_options) {
+            shuffle($options_by_question[$question_id]);
+        }
+        
+        // Rebuild the options array with randomized order
+        $options = array();
+        foreach ($options_by_question as $question_options) {
+            $options = array_merge($options, $question_options);
+        }
+    }
+    
     $output = '<div class="quiz-container" data-quiz-id="' . esc_attr($quiz->id) . '">';
     $output .= '<h2>' . esc_html($quiz->title) . '</h2>';
     

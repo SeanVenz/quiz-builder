@@ -44,14 +44,14 @@ function qb_add_admin_menu()
         'qb_manage_questions_page'
     );
 
-    // add_submenu_page(
-    //     'quiz-builder',
-    //     'Quiz Settings',
-    //     'Settings',
-    //     'manage_options',
-    //     'qb-quiz-settings',
-    //     'qb_quiz_settings_page'
-    // );
+    add_submenu_page(
+        'quiz-builder',
+        'Quiz Settings',
+        'Settings',
+        'manage_options',
+        'qb-quiz-settings',
+        'qb_quiz_settings_page'
+    );
 
     add_submenu_page(
         'quiz-builder',

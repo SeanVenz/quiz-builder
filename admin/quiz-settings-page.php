@@ -15,12 +15,15 @@ function qb_quiz_settings_page() {
     // Handle form submission
     if (isset($_POST['qb_save_settings'])) {
         check_admin_referer('qb_save_settings');
+          $quiz_id = intval($_POST['quiz_id']);
         
-        $quiz_id = intval($_POST['quiz_id']);        $settings = array(
+        $settings = array(
             'is_paginated' => isset($_POST['is_paginated']) ? 1 : 0,
             'questions_per_page' => max(1, intval($_POST['questions_per_page'])),
             'show_user_answers' => isset($_POST['show_user_answers']) ? 1 : 0,
-            'allow_pdf_export' => isset($_POST['allow_pdf_export']) ? 1 : 0
+            'allow_pdf_export' => isset($_POST['allow_pdf_export']) ? 1 : 0,
+            'randomize_questions' => isset($_POST['randomize_questions']) ? 1 : 0,
+            'randomize_answers' => isset($_POST['randomize_answers']) ? 1 : 0
         );
         
         $result = $settings_db->save_settings($quiz_id, $settings);
@@ -86,24 +89,39 @@ function qb_quiz_settings_page() {
                             <input type="checkbox" name="show_user_answers" id="show_user_answers" value="1">
                             <p class="description">Show detailed results including user's answers and correct answers after quiz completion.</p>
                         </td>
-                    </tr>
-                    <tr>
+                    </tr>                    <tr>
                         <th><label for="allow_pdf_export">Allow PDF Export</label></th>
                         <td>
                             <input type="checkbox" name="allow_pdf_export" id="allow_pdf_export" value="1">
                             <p class="description">Allow users to download their quiz results as a PDF file.</p>
                         </td>
                     </tr>
+                    <tr>
+                        <th><label for="randomize_questions">Randomize Questions</label></th>
+                        <td>
+                            <input type="checkbox" name="randomize_questions" id="randomize_questions" value="1">
+                            <p class="description">Randomize the order of questions each time the quiz is taken.</p>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th><label for="randomize_answers">Randomize Answer Options</label></th>
+                        <td>
+                            <input type="checkbox" name="randomize_answers" id="randomize_answers" value="1">
+                            <p class="description">Randomize the order of answer options for each question.</p>
+                        </td>
+                    </tr>
                 </table>
                 <?php submit_button('Save Settings', 'primary', 'qb_save_settings'); ?>
             </form>
 
-            <script>
-            jQuery(document).ready(function($) {
+            <script>            jQuery(document).ready(function($) {
                 const quizSelect = document.getElementById('quiz_id');
-                const isPaginated = document.getElementById('is_paginated');                const questionsPerPage = document.getElementById('questions_per_page');
+                const isPaginated = document.getElementById('is_paginated');
+                const questionsPerPage = document.getElementById('questions_per_page');
                 const showUserAnswers = document.getElementById('show_user_answers');
                 const allowPdfExport = document.getElementById('allow_pdf_export');
+                const randomizeQuestions = document.getElementById('randomize_questions');
+                const randomizeAnswers = document.getElementById('randomize_answers');
 
                 // Load settings when quiz is selected
                 quizSelect.addEventListener('change', function() {
@@ -117,6 +135,8 @@ function qb_quiz_settings_page() {
                     questionsPerPage.value = 1;
                     showUserAnswers.checked = false;
                     allowPdfExport.checked = false;
+                    randomizeQuestions.checked = false;
+                    randomizeAnswers.checked = false;
                 }
 
                 function loadQuizSettings(quizId) {
@@ -126,11 +146,14 @@ function qb_quiz_settings_page() {
                         nonce: '<?php echo wp_create_nonce('qb_get_settings'); ?>'
                     })
                     .done(function(response) {
-                        if (response.success && response.data) {
-                            const settings = response.data;                            isPaginated.checked = settings.is_paginated === '1' || settings.is_paginated === 1;
+                        if (response.success && response.data) {                            const settings = response.data;
+                            
+                            isPaginated.checked = settings.is_paginated === '1' || settings.is_paginated === 1;
                             questionsPerPage.value = settings.questions_per_page || 1;
                             showUserAnswers.checked = settings.show_user_answers === '1' || settings.show_user_answers === 1;
                             allowPdfExport.checked = settings.allow_pdf_export === '1' || settings.allow_pdf_export === 1;
+                            randomizeQuestions.checked = settings.randomize_questions === '1' || settings.randomize_questions === 1;
+                            randomizeAnswers.checked = settings.randomize_answers === '1' || settings.randomize_answers === 1;
                         } else {
                             resetToDefaults();
                         }
@@ -178,20 +201,24 @@ function qb_get_quiz_settings_ajax() {
     
     $quiz_id = intval($_POST['quiz_id']);
     $settings_db = new QB_Quiz_Settings_DB();
-    $settings = $settings_db->get_settings($quiz_id);
-
-    if ($settings) {
+    $settings = $settings_db->get_settings($quiz_id);    if ($settings) {
         // Ensure boolean values are properly handled
         $settings->is_paginated = (int)$settings->is_paginated;
         $settings->questions_per_page = (int)$settings->questions_per_page;
         $settings->show_user_answers = (int)$settings->show_user_answers;
+        $settings->allow_pdf_export = (int)$settings->allow_pdf_export;
+        $settings->randomize_questions = (int)$settings->randomize_questions;
+        $settings->randomize_answers = (int)$settings->randomize_answers;
         wp_send_json_success($settings);
     } else {
         // Return default settings
         wp_send_json_success(array(
             'is_paginated' => 0,
             'questions_per_page' => 1,
-            'show_user_answers' => 0
+            'show_user_answers' => 0,
+            'allow_pdf_export' => 0,
+            'randomize_questions' => 0,
+            'randomize_answers' => 0
         ));
     }
 }
