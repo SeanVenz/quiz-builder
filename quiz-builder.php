@@ -21,6 +21,7 @@ require_once QB_PATH . 'includes/db-functions.php';
 require_once QB_PATH . 'admin/quiz-admin-page.php';
 require_once QB_PATH . 'admin/manage-questions-page.php';
 require_once QB_PATH . 'admin/quiz-settings-page.php';
+require_once QB_PATH . 'admin/categories-page.php';
 require_once QB_PATH . 'templates/quiz-display.php';
 require_once QB_PATH . 'templates/quiz-results.php';
 // Include onboarding page
@@ -45,6 +46,11 @@ function qb_check_for_updates() {
         $settings_db = new QB_Quiz_Settings_DB();
         $settings_db->update_table();
         
+        // Create or update categories table
+        require_once plugin_dir_path(__FILE__) . 'includes/db/class-categories-db.php';
+        $categories_db = new QB_Categories_DB();
+        $categories_db->create_table();
+        
         update_option('qb_version', QB_VERSION);
     }
 }
@@ -67,6 +73,11 @@ function qb_activate_plugin() {
     
     // Create fresh table
     $settings_db->update_table();
+    
+    // Create or update categories table
+    require_once plugin_dir_path(__FILE__) . 'includes/db/class-categories-db.php';
+    $categories_db = new QB_Categories_DB();
+    $categories_db->create_table();
     
     // Set version
     update_option('qb_version', QB_VERSION);

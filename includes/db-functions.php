@@ -118,6 +118,26 @@ function qb_create_quiz_settings_table() {
     dbDelta($sql);
 }
 
+function qb_create_categories_table() {
+    global $wpdb;
+    $table_name = $wpdb->prefix . 'qb_categories';
+    $charset_collate = $wpdb->get_charset_collate();
+
+    $sql = "CREATE TABLE $table_name (
+        id BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+        name VARCHAR(255) NOT NULL,
+        description TEXT,
+        color VARCHAR(7) DEFAULT '#3498db',
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        PRIMARY KEY (id),
+        UNIQUE KEY name (name)
+    ) $charset_collate;";
+
+    require_once ABSPATH . 'wp-admin/includes/upgrade.php';
+    dbDelta($sql);
+}
+
 function qb_create_database_tables() {
     // Create all necessary tables
     if (function_exists('qb_create_quiz_table')) {
@@ -138,6 +158,10 @@ function qb_create_database_tables() {
 
     if (function_exists('qb_create_quiz_settings_table')) {
         qb_create_quiz_settings_table();
+    }
+
+    if (function_exists('qb_create_categories_table')) {
+        qb_create_categories_table();
     }
 
     // Create quiz results page if it doesn't exist

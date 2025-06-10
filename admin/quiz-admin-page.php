@@ -61,6 +61,15 @@ function qb_add_admin_menu()
         'qb-quiz-attempts',
         'qb_quiz_attempts_page'
     );
+
+    add_submenu_page(
+        'quiz-builder',
+        'Categories',
+        'Categories',
+        'manage_options',
+        'qb-categories',
+        'qb_categories_page'
+    );
 }
 
 function qb_admin_page_content()
