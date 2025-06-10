@@ -405,9 +405,7 @@ function qb_manage_questions_page() {
                     );
                 }
                 echo '<div class="updated notice"><p>Question order saved!</p></div>';
-                break;
-
-            case 'save_options':
+                break;            case 'save_options':
                 $question_id = intval($_POST['question_id']);
                 $options = json_decode(stripslashes($_POST['options']), true);
                 
@@ -425,6 +423,36 @@ function qb_manage_questions_page() {
                     }
                     echo '<div class="updated notice"><p>Options saved!</p></div>';
                 }
+                break;            case 'bulk_category_update':
+                $question_ids = array_map('intval', explode(',', $_POST['question_ids']));
+                $category_id = !empty($_POST['bulk_category_id']) ? intval($_POST['bulk_category_id']) : null;
+                $action_type = sanitize_text_field($_POST['bulk_action_type']);
+                
+                if (!empty($question_ids)) {
+                    foreach ($question_ids as $question_id) {
+                        if ($action_type === 'remove-category') {
+                            $wpdb->update($questions_table, 
+                                ['category_id' => null],
+                                ['id' => $question_id, 'quiz_id' => $quiz_id]
+                            );
+                        } else if ($action_type === 'set-category' && $category_id) {
+                            $wpdb->update($questions_table, 
+                                ['category_id' => $category_id],
+                                ['id' => $question_id, 'quiz_id' => $quiz_id]
+                            );
+                        }
+                    }
+                    echo '<div class="updated notice"><p>Categories updated for ' . count($question_ids) . ' questions!</p></div>';
+                }
+                break;
+
+            case 'remove_single_category':
+                $question_id = intval($_POST['question_id']);
+                $wpdb->update($questions_table, 
+                    ['category_id' => null],
+                    ['id' => $question_id, 'quiz_id' => $quiz_id]
+                );
+                echo '<div class="updated notice"><p>Category removed from question!</p></div>';
                 break;
         }
     }    // Get questions ordered by the order column with category information
@@ -488,7 +516,111 @@ function qb_manage_questions_page() {
 
             <hr>
 
-            <h2>Questions</h2>
+            <?php if (!empty($categories)): ?>
+            <!-- Category Management Tools -->
+            <div class="qb-category-tools">
+                <h3>Category Management Tools</h3>
+                <div class="category-actions">
+                    <div class="bulk-category-change">
+                        <label for="filter-category">Filter by Category:</label>
+                        <select id="filter-category">
+                            <option value="">All Categories</option>
+                            <option value="none">No Category</option>
+                            <?php foreach ($categories as $category): ?>
+                                <option value="<?php echo esc_attr($category->id); ?>">
+                                    <?php echo esc_html($category->name); ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                    
+                    <div class="bulk-operations">
+                        <label>Bulk Actions:</label>
+                        <select id="bulk-action">
+                            <option value="">Choose Action</option>
+                            <option value="set-category">Set Category</option>
+                            <option value="remove-category">Remove Category</option>
+                        </select>
+                        <select id="bulk-category" style="display:none;">
+                            <option value="">-- Select Category --</option>
+                            <?php foreach ($categories as $category): ?>
+                                <option value="<?php echo esc_attr($category->id); ?>">
+                                    <?php echo esc_html($category->name); ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                        <button type="button" id="apply-bulk-action" class="button">Apply to Selected</button>
+                    </div>
+                </div>
+                
+                <form method="post" id="bulk-category-form" style="display:none;">
+                    <?php wp_nonce_field('qb_manage_questions'); ?>
+                    <input type="hidden" name="action" value="bulk_category_update">
+                    <input type="hidden" name="question_ids" id="bulk-question-ids">
+                    <input type="hidden" name="bulk_category_id" id="bulk-category-id">
+                    <input type="hidden" name="bulk_action_type" id="bulk-action-type">
+                </form>
+            </div>
+            <hr>
+            <?php endif; ?>
+
+            <?php if (!empty($categories)): ?>
+            <!-- Category Management Tools -->
+            <div class="qb-category-tools">
+                <h3>Category Management Tools</h3>
+                <div class="category-actions">
+                    <div class="bulk-category-change">
+                        <label for="filter-category">Filter by Category:</label>
+                        <select id="filter-category">
+                            <option value="">All Categories</option>
+                            <option value="none">No Category</option>
+                            <?php foreach ($categories as $category): ?>
+                                <option value="<?php echo esc_attr($category->id); ?>">
+                                    <?php echo esc_html($category->name); ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                    
+                    <div class="bulk-operations">
+                        <label>Bulk Actions:</label>
+                        <select id="bulk-action">
+                            <option value="">Choose Action</option>
+                            <option value="set-category">Set Category</option>
+                            <option value="remove-category">Remove Category</option>
+                        </select>
+                        <select id="bulk-category" style="display:none;">
+                            <option value="">-- Select Category --</option>
+                            <?php foreach ($categories as $category): ?>
+                                <option value="<?php echo esc_attr($category->id); ?>">
+                                    <?php echo esc_html($category->name); ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                        <button type="button" id="apply-bulk-action" class="button">Apply to Selected</button>
+                        <button type="button" id="select-all-questions" class="button">Select All</button>
+                        <button type="button" id="deselect-all-questions" class="button">Deselect All</button>
+                    </div>
+                </div>
+                
+                <form method="post" id="bulk-category-form" style="display:none;">
+                    <?php wp_nonce_field('qb_manage_questions'); ?>
+                    <input type="hidden" name="action" value="bulk_category_update">
+                    <input type="hidden" name="question_ids" id="bulk-question-ids">
+                    <input type="hidden" name="bulk_category_id" id="bulk-category-id">
+                    <input type="hidden" name="bulk_action_type" id="bulk-action-type">
+                </form>
+                
+                <form method="post" id="remove-category-form" style="display:none;">
+                    <?php wp_nonce_field('qb_manage_questions'); ?>
+                    <input type="hidden" name="action" value="remove_single_category">
+                    <input type="hidden" name="question_id" id="remove-category-question-id">
+                </form>
+            </div>
+            <hr>
+            <?php endif; ?>
+
+            <h2>Questions <span id="question-count"><?php echo count($questions); ?></span></h2>
             <div id="questions-list" class="sortable">
                 <?php if ($questions): ?>
                     <?php foreach ($questions as $question): 
@@ -498,6 +630,7 @@ function qb_manage_questions_page() {
                         ));
                     ?>                        <div class="accordion" data-question-id="<?php echo $question->id; ?>" data-category-id="<?php echo $question->category_id ?: ''; ?>">
                             <div class="accordion-header">
+                                <input type="checkbox" class="question-checkbox" value="<?php echo $question->id; ?>" style="margin-right: 10px;">
                                 <span class="handle">⋮</span>
                                 <span class="question-text">
                                     <?php echo esc_html($question->question); ?>
@@ -509,6 +642,7 @@ function qb_manage_questions_page() {
                                 </span>
                                 <div class="question-actions">
                                     <button class="button edit-question" data-id="<?php echo $question->id; ?>">Edit</button>
+                                    <button class="button remove-category-btn" data-id="<?php echo $question->id; ?>" style="display: <?php echo $question->category_id ? 'inline-block' : 'none'; ?>;">Remove Category</button>
                                     <button class="button delete-question" data-id="<?php echo $question->id; ?>">Delete</button>
                                 </div>
                             </div>
@@ -549,12 +683,36 @@ function qb_manage_questions_page() {
                 <?php submit_button('Save Order', 'primary', 'submit', false); ?>
             </form>
         </div>
-    </div>
-
-    <style>
+    </div>    <style>
         .qb-questions-container {
             max-width: 1200px;
             margin: 0 auto;
+        }
+        .qb-category-tools {
+            background: #f9f9f9;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            margin-bottom: 20px;
+        }
+        .qb-category-tools h3 {
+            margin-top: 0;
+            margin-bottom: 15px;
+        }
+        .category-actions {
+            display: flex;
+            gap: 30px;
+            align-items: flex-start;
+            flex-wrap: wrap;
+        }
+        .bulk-category-change, .bulk-operations {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        .bulk-operations select, .bulk-category-change select {
+            min-width: 150px;
         }
         .sortable {
             margin-bottom: 20px;
@@ -564,6 +722,9 @@ function qb_manage_questions_page() {
             border: 1px solid #ccc;
             border-radius: 4px;
             background: #fff;
+        }
+        .accordion.hidden {
+            display: none;
         }
         .accordion-header {
             background: #f1f1f1;
@@ -580,6 +741,10 @@ function qb_manage_questions_page() {
             font-size: 20px;
         }        .accordion-header .question-text {
             flex-grow: 1;
+            margin-left: 10px;
+        }
+        .question-checkbox {
+            margin-right: 10px;
         }
         .qb-category-badge {
             display: inline-block;
@@ -593,6 +758,17 @@ function qb_manage_questions_page() {
         }
         .accordion-header .question-actions {
             margin-left: 10px;
+            display: flex;
+            gap: 5px;
+        }
+        .remove-category-btn {
+            background-color: #f39c12 !important;
+            color: white !important;
+            border-color: #f39c12 !important;
+        }
+        .remove-category-btn:hover {
+            background-color: #e67e22 !important;
+            border-color: #e67e22 !important;
         }
         .accordion-body {
             display: none;
@@ -668,6 +844,10 @@ function qb_manage_questions_page() {
             position: relative;
             z-index: 2;
         }
+        #question-count {
+            color: #666;
+            font-size: 0.9em;
+        }
     </style>    <script>
     jQuery(document).ready(function($) {
         // Categories data for JavaScript
@@ -697,9 +877,106 @@ function qb_manage_questions_page() {
             }
         });
 
+        // Category filtering
+        $('#filter-category').on('change', function() {
+            var selectedCategory = $(this).val();
+            var visibleCount = 0;
+            
+            $('.accordion').each(function() {
+                var questionCategoryId = $(this).data('category-id');
+                var show = false;
+                
+                if (selectedCategory === '') {
+                    // Show all
+                    show = true;
+                } else if (selectedCategory === 'none') {
+                    // Show only questions without category
+                    show = !questionCategoryId;
+                } else {
+                    // Show only questions with specific category
+                    show = questionCategoryId == selectedCategory;
+                }
+                
+                if (show) {
+                    $(this).removeClass('hidden');
+                    visibleCount++;
+                } else {
+                    $(this).addClass('hidden');
+                }
+            });
+            
+            // Update question count
+            var totalCount = $('.accordion').length;
+            $('#question-count').text(visibleCount + ' of ' + totalCount);
+        });
+
+        // Bulk action handling
+        $('#bulk-action').on('change', function() {
+            var action = $(this).val();
+            if (action === 'set-category') {
+                $('#bulk-category').show();
+            } else {
+                $('#bulk-category').hide();
+            }
+        });
+
+        // Select/deselect all questions
+        $('#select-all-questions').on('click', function() {
+            $('.accordion:not(.hidden) .question-checkbox').prop('checked', true);
+        });
+
+        $('#deselect-all-questions').on('click', function() {
+            $('.question-checkbox').prop('checked', false);
+        });
+
+        // Apply bulk action
+        $('#apply-bulk-action').on('click', function() {
+            var action = $('#bulk-action').val();
+            var selectedQuestions = [];
+            
+            $('.question-checkbox:checked').each(function() {
+                selectedQuestions.push($(this).val());
+            });
+            
+            if (selectedQuestions.length === 0) {
+                alert('Please select at least one question.');
+                return;
+            }
+            
+            if (!action) {
+                alert('Please select an action.');
+                return;
+            }
+            
+            if (action === 'set-category') {
+                var categoryId = $('#bulk-category').val();
+                if (!categoryId) {
+                    alert('Please select a category.');
+                    return;
+                }
+                $('#bulk-category-id').val(categoryId);
+            }
+            
+            $('#bulk-question-ids').val(selectedQuestions.join(','));
+            $('#bulk-action-type').val(action);
+            $('#bulk-category-form').submit();
+        });
+
+        // Remove category from single question
+        $('.remove-category-btn').on('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            if (confirm('Are you sure you want to remove the category from this question?')) {
+                var questionId = $(this).data('id');
+                $('#remove-category-question-id').val(questionId);
+                $('#remove-category-form').submit();
+            }
+        });
+
         // Toggle accordion
         $('.accordion-header').on('click', function(e) {
-            if (!$(e.target).is('.handle, .edit-question, .delete-question, .edit-question-form *, .edit-option-form *')) {
+            if (!$(e.target).is('.handle, .edit-question, .delete-question, .remove-category-btn, .question-checkbox, .edit-question-form *, .edit-option-form *')) {
                 $(this).next('.accordion-body').slideToggle();
             }
         });        // Edit question
@@ -869,6 +1146,9 @@ function qb_manage_questions_page() {
             e.stopPropagation();
             location.reload();
         });
+
+        // Initialize question count
+        $('#question-count').text($('.accordion').length);
     });
     </script>
     <?php
