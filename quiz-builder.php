@@ -314,14 +314,23 @@ function qb_display_quiz_results() {
         // Use the detailed results display class
         require_once QB_PATH . 'includes/results/class-quiz-results-display.php';
         $results_display = new QB_Quiz_Results_Display();
-        return $results_display->display_results($attempt->id);
-    } else {
+        return $results_display->display_results($attempt->id);    } else {
         // Use basic template output
         $score = $attempt->score;
         $total_possible_points = $attempt->total_points;
-        ob_start();
-        include QB_PATH . 'templates/quiz-results-html.php';
-        return ob_get_clean();
+        
+        // Parse user answers for category scores
+        $user_answers = json_decode($attempt->answers, true);
+        $answer_map = array();
+        if ($user_answers) {
+            foreach ($user_answers as $answer) {
+                $answer_map[$answer['question_id']] = $answer['option_id'];
+            }
+        }
+        
+        // Include results template
+        require_once QB_PATH . 'templates/quiz-results.php';
+        return qb_get_quiz_results($quiz, $score, $total_possible_points, $answer_map);
     }
 }
 
