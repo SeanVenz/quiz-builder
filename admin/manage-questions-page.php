@@ -512,57 +512,7 @@ function qb_manage_questions_page() {
                     <?php endif; ?>
                 </table>
                 <?php submit_button('Add Question', 'primary', 'submit', false); ?>
-            </form>
-
-            <hr>
-
-            <?php if (!empty($categories)): ?>
-            <!-- Category Management Tools -->
-            <div class="qb-category-tools">
-                <h3>Category Management Tools</h3>
-                <div class="category-actions">
-                    <div class="bulk-category-change">
-                        <label for="filter-category">Filter by Category:</label>
-                        <select id="filter-category">
-                            <option value="">All Categories</option>
-                            <option value="none">No Category</option>
-                            <?php foreach ($categories as $category): ?>
-                                <option value="<?php echo esc_attr($category->id); ?>">
-                                    <?php echo esc_html($category->name); ?>
-                                </option>
-                            <?php endforeach; ?>
-                        </select>
-                    </div>
-                    
-                    <div class="bulk-operations">
-                        <label>Bulk Actions:</label>
-                        <select id="bulk-action">
-                            <option value="">Choose Action</option>
-                            <option value="set-category">Set Category</option>
-                            <option value="remove-category">Remove Category</option>
-                        </select>
-                        <select id="bulk-category" style="display:none;">
-                            <option value="">-- Select Category --</option>
-                            <?php foreach ($categories as $category): ?>
-                                <option value="<?php echo esc_attr($category->id); ?>">
-                                    <?php echo esc_html($category->name); ?>
-                                </option>
-                            <?php endforeach; ?>
-                        </select>
-                        <button type="button" id="apply-bulk-action" class="button">Apply to Selected</button>
-                    </div>
-                </div>
-                
-                <form method="post" id="bulk-category-form" style="display:none;">
-                    <?php wp_nonce_field('qb_manage_questions'); ?>
-                    <input type="hidden" name="action" value="bulk_category_update">
-                    <input type="hidden" name="question_ids" id="bulk-question-ids">
-                    <input type="hidden" name="bulk_category_id" id="bulk-category-id">
-                    <input type="hidden" name="bulk_action_type" id="bulk-action-type">
-                </form>
-            </div>
-            <hr>
-            <?php endif; ?>
+            </form>            <hr>
 
             <?php if (!empty($categories)): ?>
             <!-- Category Management Tools -->
