@@ -298,9 +298,10 @@ function qb_manage_questions_page() {
     if (isset($_POST['action'])) {
         check_admin_referer('qb_manage_questions');
         
-        switch ($_POST['action']) {
-            case 'add_question':
+        switch ($_POST['action']) {            case 'add_question':
                 $question_text = sanitize_text_field($_POST['question_text']);
+                $category_id = !empty($_POST['category_id']) ? intval($_POST['category_id']) : null;
+                
                 if (!empty($question_text)) {
                     // Get the next order number
                     $next_order = $wpdb->get_var($wpdb->prepare(
@@ -308,21 +309,33 @@ function qb_manage_questions_page() {
                         $quiz_id
                     )) ?: 1;
 
-                    $wpdb->insert($questions_table, [
+                    $insert_data = [
                         'quiz_id' => $quiz_id,
                         'question' => $question_text,
                         'order' => $next_order
-                    ]);
+                    ];
+                    
+                    // Add category_id if provided
+                    if ($category_id) {
+                        $insert_data['category_id'] = $category_id;
+                    }
+
+                    $wpdb->insert($questions_table, $insert_data);
                     echo '<div class="updated notice"><p>Question added!</p></div>';
                 }
-                break;
-
-            case 'edit_question':
+                break;            case 'edit_question':
                 $question_id = intval($_POST['question_id']);
                 $question_text = sanitize_text_field($_POST['question_text']);
+                $category_id = !empty($_POST['category_id']) ? intval($_POST['category_id']) : null;
+                
                 if (!empty($question_text)) {
+                    $update_data = ['question' => $question_text];
+                    
+                    // Add category_id to update data (can be null to remove category)
+                    $update_data['category_id'] = $category_id;
+                    
                     $wpdb->update($questions_table, 
-                        ['question' => $question_text],
+                        $update_data,
                         ['id' => $question_id]
                     );
                     echo '<div class="updated notice"><p>Question updated!</p></div>';
@@ -414,11 +427,13 @@ function qb_manage_questions_page() {
                 }
                 break;
         }
-    }
-
-    // Get questions ordered by the order column
+    }    // Get questions ordered by the order column with category information
     $questions = $wpdb->get_results($wpdb->prepare(
-        "SELECT * FROM $questions_table WHERE quiz_id = %d ORDER BY `order` ASC, id ASC", 
+        "SELECT q.*, c.name as category_name, c.color as category_color
+         FROM $questions_table q 
+         LEFT JOIN {$wpdb->prefix}qb_categories c ON q.category_id = c.id 
+         WHERE q.quiz_id = %d 
+         ORDER BY q.`order` ASC, q.id ASC", 
         $quiz_id
     ));
     ?>
@@ -434,9 +449,7 @@ function qb_manage_questions_page() {
                 ))); ?>" class="button button-primary">
                     Export Quiz Attempts
                 </a> -->
-            </div>
-
-            <h2>Add New Question</h2>
+            </div>            <h2>Add New Question</h2>
             <form method="post" class="qb-form">
                 <?php wp_nonce_field('qb_manage_questions'); ?>
                 <input type="hidden" name="action" value="add_question">
@@ -448,6 +461,27 @@ function qb_manage_questions_page() {
                             <p class="description">Enter the question text</p>
                         </td>
                     </tr>
+                    <?php
+                    // Check if categories exist and show dropdown
+                    require_once plugin_dir_path(__FILE__) . '../includes/db/class-categories-db.php';
+                    $categories_db = new QB_Categories_DB();
+                    $categories = $categories_db->get_all_categories();
+                    if (!empty($categories)): ?>
+                    <tr>
+                        <th><label for="category_id">Category</label></th>
+                        <td>
+                            <select name="category_id" id="category_id">
+                                <option value="">-- Select Category (Optional) --</option>
+                                <?php foreach ($categories as $category): ?>
+                                    <option value="<?php echo esc_attr($category->id); ?>">
+                                        <?php echo esc_html($category->name); ?>
+                                    </option>
+                                <?php endforeach; ?>
+                            </select>
+                            <p class="description">Select a category to organize this question (optional)</p>
+                        </td>
+                    </tr>
+                    <?php endif; ?>
                 </table>
                 <?php submit_button('Add Question', 'primary', 'submit', false); ?>
             </form>
@@ -462,11 +496,17 @@ function qb_manage_questions_page() {
                             "SELECT * FROM $options_table WHERE question_id = %d ORDER BY id ASC", 
                             $question->id
                         ));
-                    ?>
-                        <div class="accordion" data-question-id="<?php echo $question->id; ?>">
+                    ?>                        <div class="accordion" data-question-id="<?php echo $question->id; ?>" data-category-id="<?php echo $question->category_id ?: ''; ?>">
                             <div class="accordion-header">
                                 <span class="handle">⋮</span>
-                                <span class="question-text"><?php echo esc_html($question->question); ?></span>
+                                <span class="question-text">
+                                    <?php echo esc_html($question->question); ?>
+                                    <?php if ($question->category_name): ?>
+                                        <span class="qb-category-badge" style="background-color: <?php echo esc_attr($question->category_color); ?>;">
+                                            <?php echo esc_html($question->category_name); ?>
+                                        </span>
+                                    <?php endif; ?>
+                                </span>
                                 <div class="question-actions">
                                     <button class="button edit-question" data-id="<?php echo $question->id; ?>">Edit</button>
                                     <button class="button delete-question" data-id="<?php echo $question->id; ?>">Delete</button>
@@ -538,9 +578,18 @@ function qb_manage_questions_page() {
             margin-right: 10px;
             color: #666;
             font-size: 20px;
-        }
-        .accordion-header .question-text {
+        }        .accordion-header .question-text {
             flex-grow: 1;
+        }
+        .qb-category-badge {
+            display: inline-block;
+            background: #3498db;
+            color: white;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 11px;
+            margin-left: 8px;
+            font-weight: 500;
         }
         .accordion-header .question-actions {
             margin-left: 10px;
@@ -619,10 +668,22 @@ function qb_manage_questions_page() {
             position: relative;
             z-index: 2;
         }
-    </style>
-
-    <script>
+    </style>    <script>
     jQuery(document).ready(function($) {
+        // Categories data for JavaScript
+        <?php
+        $categories_js = array();
+        if (!empty($categories)) {
+            foreach ($categories as $category) {
+                $categories_js[] = array(
+                    'id' => $category->id,
+                    'name' => $category->name
+                );
+            }
+        }
+        ?>
+        var categoriesData = <?php echo json_encode($categories_js); ?>;
+        
         // Initialize sortable
         $('#questions-list').sortable({
             handle: '.handle',
@@ -641,22 +702,38 @@ function qb_manage_questions_page() {
             if (!$(e.target).is('.handle, .edit-question, .delete-question, .edit-question-form *, .edit-option-form *')) {
                 $(this).next('.accordion-body').slideToggle();
             }
-        });
-
-        // Edit question
+        });        // Edit question
         $('.edit-question').on('click', function(e) {
             e.preventDefault();
             e.stopPropagation();
             var $header = $(this).closest('.accordion-header');
             var questionText = $header.find('.question-text').text();
             var questionId = $(this).data('id');
+            var currentCategoryId = $header.closest('.accordion').data('category-id') || '';
+            
+            // Clean question text (remove category badge text)
+            questionText = questionText.replace(/\s*\w+\s*$/, '').trim();
+            
+            // Build category dropdown HTML
+            var categoryDropdown = '';
+            if (categoriesData.length > 0) {
+                categoryDropdown = `
+                    <select name="category_id" style="margin-left: 10px; margin-right: 10px;">
+                        <option value="">-- No Category --</option>`;
+                categoriesData.forEach(function(category) {
+                    var selected = (category.id == currentCategoryId) ? 'selected' : '';
+                    categoryDropdown += `<option value="${category.id}" ${selected}>${category.name}</option>`;
+                });
+                categoryDropdown += '</select>';
+            }
             
             $header.html(`
-                <form method="post" class="qb-form edit-question-form">
+                <form method="post" class="qb-form edit-question-form" style="display: flex; align-items: center; gap: 10px;">
                     <?php echo wp_nonce_field('qb_manage_questions', '_wpnonce', true, false); ?>
                     <input type="hidden" name="action" value="edit_question">
                     <input type="hidden" name="question_id" value="${questionId}">
-                    <input type="text" name="question_text" value="${questionText}" required>
+                    <input type="text" name="question_text" value="${questionText}" required style="flex-grow: 1;">
+                    ${categoryDropdown}
                     <button type="submit" class="button button-primary">Save</button>
                     <button type="button" class="button cancel-edit">Cancel</button>
                 </form>
