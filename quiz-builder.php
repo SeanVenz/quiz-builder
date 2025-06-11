@@ -185,11 +185,34 @@ function qb_handle_quiz_submission() {
             wp_send_json_error('Quiz not found');
         }
         return;
-    }
-
-    $score = 0;
+    }    $score = 0;
     $questions = $wpdb->get_results($wpdb->prepare("SELECT * FROM $questions_table WHERE quiz_id = %d", $quiz_id));
     $answers = array();
+    
+    // Check required questions validation
+    $required_questions = array_filter($questions, function($q) { return isset($q->required) && $q->required; });
+    $unanswered_required = array();
+    
+    foreach ($required_questions as $req_question) {
+        $selected_option_id = isset($_POST['question_' . $req_question->id]) ? intval($_POST['question_' . $req_question->id]) : 0;
+        if (!$selected_option_id) {
+            $unanswered_required[] = $req_question->question;
+        }
+    }
+    
+    if (!empty($unanswered_required)) {
+        error_log('Required questions not answered: ' . implode(', ', $unanswered_required));
+        if (wp_doing_ajax()) {
+            wp_send_json_error('Please answer all required questions before submitting.');
+        } else {
+            // Redirect back with error message
+            $redirect_url = wp_get_referer() ? wp_get_referer() : home_url();
+            $redirect_url = add_query_arg('quiz_error', 'required_questions', $redirect_url);
+            wp_safe_redirect($redirect_url);
+            exit;
+        }
+        return;
+    }
 
     foreach ($questions as $question) {
         $selected_option_id = isset($_POST['question_' . $question->id]) ? intval($_POST['question_' . $question->id]) : 0;

@@ -32,6 +32,7 @@ function qb_create_questions_table() {
         quiz_id BIGINT(20) UNSIGNED NOT NULL,
         category_id BIGINT(20) UNSIGNED DEFAULT NULL,
         question TEXT NOT NULL,
+        required TINYINT(1) NOT NULL DEFAULT 0,
         `order` INT DEFAULT 0,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         PRIMARY KEY (id),
@@ -110,6 +111,13 @@ function qb_create_questions_table() {
                     $wpdb->query("ALTER TABLE $table_name ADD FOREIGN KEY (category_id) REFERENCES $categories_table(id) ON DELETE SET NULL");
                 }
             }
+        }
+        
+        // Check if required column exists
+        $required_column_exists = $wpdb->get_var("SHOW COLUMNS FROM $table_name LIKE 'required'");
+        if (!$required_column_exists) {
+            // Add required column
+            $wpdb->query("ALTER TABLE $table_name ADD COLUMN required TINYINT(1) NOT NULL DEFAULT 0 AFTER question");
         }
     }
 }
