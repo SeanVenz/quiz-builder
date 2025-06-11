@@ -353,7 +353,7 @@ function qb_display_quiz_results() {
         
         // Include results template
         require_once QB_PATH . 'templates/quiz-results.php';
-        return qb_get_quiz_results($quiz, $score, $total_possible_points, $answer_map);
+        return qb_get_quiz_results($quiz, $score, $total_possible_points, $answer_map, $attempt->id);
     }
 }
 

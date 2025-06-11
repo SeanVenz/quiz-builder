@@ -81,7 +81,7 @@ function qb_calculate_category_scores($quiz_id, $user_answers) {
 /**
  * Display quiz results template
  */
-function qb_get_quiz_results($quiz, $score, $total_possible_points, $user_answers = array()) {
+function qb_get_quiz_results($quiz, $score, $total_possible_points, $user_answers = array(), $attempt_id = null) {
     error_log('Displaying quiz results for quiz ID: ' . $quiz->id);
     error_log('Score: ' . $score . ' out of ' . $total_possible_points);
 
@@ -92,6 +92,7 @@ function qb_get_quiz_results($quiz, $score, $total_possible_points, $user_answer
     $settings_db = new QB_Quiz_Settings_DB();
     $settings = $settings_db->get_settings($quiz->id);
     $show_category_scores = $settings && $settings->show_category_scores;
+    $allow_pdf_export = $settings && $settings->allow_pdf_export;
 
     $output = '<div class="quiz-result" style="max-width: 600px; margin: 0 auto; padding: 20px; background: #f9f9f9; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">';
     $output .= '<h2 style="color: #333; margin-bottom: 20px; text-align: center;">Quiz Results</h2>';
@@ -147,6 +148,20 @@ function qb_get_quiz_results($quiz, $score, $total_possible_points, $user_answer
             
             $output .= '</div>';
         }
+    }
+
+    // Add PDF export button if enabled and attempt ID is available
+    if ($allow_pdf_export && $attempt_id) {
+        $export_url = admin_url('admin-ajax.php') . '?' . http_build_query([
+            'action' => 'qb_export_pdf',
+            'attempt_id' => $attempt_id,
+            'nonce' => wp_create_nonce('qb_pdf_export_' . $attempt_id)
+        ]);
+
+        $output .= '<div class="quiz-pdf-export" style="margin: 20px 0; text-align: center;">';
+        $output .= '<a href="' . esc_url($export_url) . '" class="button button-primary" target="_blank" style="display: inline-block; padding: 12px 24px; background-color: #0073aa; color: white; text-decoration: none; border-radius: 4px; font-weight: bold; margin-right: 10px;">';
+        $output .= '📄 Download PDF Results</a>';
+        $output .= '</div>';
     }
 
     $output .= '<div style="margin-top: 20px; text-align: center;">';
