@@ -466,10 +466,9 @@ function qb_manage_questions_page() {
                 $wpdb->update($questions_table, 
                     ['required' => $required],
                     ['id' => $question_id, 'quiz_id' => $quiz_id]
-                );
-                
+                );                
                 $status = $required ? 'required' : 'optional';
-                echo '<div class="updated notice"><p>Question marked as ' . $status . '!</p></div>';
+                echo '<div class="updated notice"><p>Question marked as ' . esc_html($status) . '!</p></div>';
                 break;
         }
     }    // Get questions ordered by the order column with category information
@@ -607,9 +606,9 @@ function qb_manage_questions_page() {
                             "SELECT * FROM $options_table WHERE question_id = %d ORDER BY id ASC", 
                             $question->id
                         ));
-                    ?>                        <div class="accordion" data-question-id="<?php echo $question->id; ?>" data-category-id="<?php echo $question->category_id ?: ''; ?>">
+                    ?>                        <div class="accordion" data-question-id="<?php echo esc_attr($question->id); ?>" data-category-id="<?php echo esc_attr($question->category_id ?: ''); ?>">
                             <div class="accordion-header">
-                                <input type="checkbox" class="question-checkbox" value="<?php echo $question->id; ?>" style="margin-right: 10px;">
+                                <input type="checkbox" class="question-checkbox" value="<?php echo esc_attr($question->id); ?>" style="margin-right: 10px;">
                                 <span class="handle">⋮</span>                                <span class="question-text">
                                     <?php echo esc_html($question->question); ?>
                                     <?php if ($question->required): ?>
@@ -622,14 +621,12 @@ function qb_manage_questions_page() {
                                             <?php echo esc_html($question->category_name); ?>
                                         </span>
                                     <?php endif; ?>
-                                </span>                                <div class="question-actions">
-                                    <label class="required-toggle" style="margin-right: 10px; display: flex; align-items: center; font-size: 12px;">
-                                        <input type="checkbox" class="required-checkbox" data-question-id="<?php echo $question->id; ?>" <?php echo $question->required ? 'checked' : ''; ?> style="margin-right: 5px;">
+                                </span>                                <div class="question-actions">                                    <label class="required-toggle" style="margin-right: 10px; display: flex; align-items: center; font-size: 12px;">
+                                        <input type="checkbox" class="required-checkbox" data-question-id="<?php echo esc_attr($question->id); ?>" <?php echo esc_attr($question->required ? 'checked' : ''); ?> style="margin-right: 5px;">
                                         Required
-                                    </label>
-                                    <button class="button edit-question" data-id="<?php echo $question->id; ?>">Edit</button>
-                                    <button class="button remove-category-btn" data-id="<?php echo $question->id; ?>" style="display: <?php echo $question->category_id ? 'inline-block' : 'none'; ?>;">Remove Category</button>
-                                    <button class="button delete-question" data-id="<?php echo $question->id; ?>">Delete</button>
+                                    </label><button class="button edit-question" data-id="<?php echo esc_attr($question->id); ?>">Edit</button>
+                                    <button class="button remove-category-btn" data-id="<?php echo esc_attr($question->id); ?>" style="display: <?php echo esc_attr($question->category_id ? 'inline-block' : 'none'); ?>;">Remove Category</button>
+                                    <button class="button delete-question" data-id="<?php echo esc_attr($question->id); ?>">Delete</button>
                                 </div>
                             </div>
                             <div class="accordion-body">
@@ -639,9 +636,8 @@ function qb_manage_questions_page() {
                                     
                                     <form method="post" class="qb-form">
                                         <?php wp_nonce_field('qb_manage_questions'); ?>
-                                        <input type="hidden" name="action" value="save_options">
-                                        <input type="hidden" name="question_id" value="<?php echo $question->id; ?>">
-                                        <input type="hidden" name="options" value='<?php 
+                                        <input type="hidden" name="action" value="save_options">                                        <input type="hidden" name="question_id" value="<?php echo esc_attr($question->id); ?>">
+                                        <input type="hidden" name="options" value='<?php
                                             echo esc_attr(json_encode(array_map(function($opt) {
                                                 return ['text' => $opt->option_text, 'points' => $opt->points];
                                             }, $options)));
@@ -857,9 +853,9 @@ function qb_manage_questions_page() {
                     'name' => $category->name
                 );
             }
-        }
-        ?>
+        }        ?>
         var categoriesData = <?php echo json_encode($categories_js); ?>;
+        var qbNonceField = '<?php echo wp_nonce_field('qb_manage_questions', '_wpnonce', true, false); ?>';
         
         // Initialize sortable
         $('#questions-list').sortable({
@@ -1020,10 +1016,8 @@ function qb_manage_questions_page() {
                     <input type="checkbox" name="question_required" value="1" ${isRequired ? 'checked' : ''} style="margin-right: 5px;">
                     Required
                 </label>`;
-            
-            $header.html(`
-                <form method="post" class="qb-form edit-question-form" style="display: flex; align-items: center; gap: 10px;">
-                    <?php echo wp_nonce_field('qb_manage_questions', '_wpnonce', true, false); ?>
+              $header.html(`                <form method="post" class="qb-form edit-question-form" style="display: flex; align-items: center; gap: 10px;">
+                    ${qbNonceField}
                     <input type="hidden" name="action" value="edit_question">
                     <input type="hidden" name="question_id" value="${questionId}">
                     <input type="text" name="question_text" value="${questionText}" required style="flex-grow: 1;">
@@ -1045,9 +1039,8 @@ function qb_manage_questions_page() {
             e.preventDefault();
             e.stopPropagation();
             if (confirm('Are you sure you want to delete this question?')) {
-                var questionId = $(this).data('id');
-                var $form = $('<form method="post">')
-                    .append('<?php echo wp_nonce_field('qb_manage_questions', '_wpnonce', true, false); ?>')
+                var questionId = $(this).data('id');                var $form = $('<form method="post">')
+                    .append(qbNonceField)
                     .append($('<input type="hidden" name="action" value="delete_question">'))
                     .append($('<input type="hidden" name="question_id" value="' + questionId + '">'));
                 $('body').append($form);

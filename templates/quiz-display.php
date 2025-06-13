@@ -49,13 +49,11 @@ function qb_get_quiz_display($quiz, $questions, $options, $settings) {
     $output .= '<form method="post" class="quiz-form" id="quiz-form-' . esc_attr($quiz->id) . '">';
     $output .= wp_nonce_field('qb_quiz_submission', 'qb_quiz_nonce', true, false);
     $output .= '<input type="hidden" name="action" value="qb_handle_quiz_submission">';
-    $output .= '<input type="hidden" name="quiz_id" value="' . esc_attr($quiz->id) . '">';
-
-    // Group questions into pages if pagination is enabled
+    $output .= '<input type="hidden" name="quiz_id" value="' . esc_attr($quiz->id) . '">';    // Group questions into pages if pagination is enabled
     if ($settings->is_paginated) {
         $questions_per_page = max(1, intval($settings->questions_per_page));
         $total_pages = ceil(count($questions) / $questions_per_page);
-        $current_page = isset($_GET['page']) ? max(1, min(intval($_GET['page']), $total_pages)) : 1;
+        $current_page = isset($_GET['quiz_page']) ? max(1, min(intval($_GET['quiz_page']), $total_pages)) : 1;
         
         $output .= '<div class="quiz-pagination-info">';
         $output .= '<span class="current-page">Page ' . esc_html($current_page) . ' of ' . esc_html($total_pages) . '</span>';
@@ -95,17 +93,17 @@ function qb_get_quiz_display($quiz, $questions, $options, $settings) {
 
     // Add navigation buttons if pagination is enabled
     if ($settings->is_paginated) {
-        $output .= '<div class="quiz-navigation">';
-        
-        // Previous button
+        $output .= '<div class="quiz-navigation">';        // Previous button
         if ($current_page > 1) {
-            $prev_url = add_query_arg('page', $current_page - 1);
+            $current_url = remove_query_arg('quiz_page');
+            $prev_url = add_query_arg('quiz_page', $current_page - 1, $current_url);
             $output .= '<a href="' . esc_url($prev_url) . '" class="button prev-button">Previous</a>';
         }
         
         // Next/Submit button
         if ($current_page < $total_pages) {
-            $next_url = add_query_arg('page', $current_page + 1);
+            $current_url = remove_query_arg('quiz_page');
+            $next_url = add_query_arg('quiz_page', $current_page + 1, $current_url);
             $output .= '<a href="' . esc_url($next_url) . '" class="button next-button">Next</a>';
         } else {
             $output .= '<button type="submit" class="button submit-button">Submit Quiz</button>';
