@@ -69,11 +69,8 @@ function qb_get_quiz_display($quiz, $questions, $options, $settings) {
     foreach ($current_questions as $question) {
         $required_attr = isset($question->required) && $question->required ? ' data-required="true"' : '';
         $output .= '<div class="question" data-question-id="' . esc_attr($question->id) . '"' . $required_attr . '>';
-        
-        $question_title = esc_html($question->question);
-        if (isset($question->required) && $question->required) {
-            $question_title .= ' <span class="required-indicator" style="color: #e74c3c; font-weight: bold;">*</span>';
-        }
+          $question_title = esc_html($question->question);
+        // Note: Asterisk will be added dynamically when validation fails
         $output .= '<h3>' . $question_title . '</h3>';
         
         $question_options = array_filter($options, function($option) use ($question) {
@@ -99,12 +96,11 @@ function qb_get_quiz_display($quiz, $questions, $options, $settings) {
             $prev_url = add_query_arg('quiz_page', $current_page - 1, $current_url);
             $output .= '<a href="' . esc_url($prev_url) . '" class="button prev-button">Previous</a>';
         }
-        
-        // Next/Submit button
+          // Next/Submit button
         if ($current_page < $total_pages) {
             $current_url = remove_query_arg('quiz_page');
             $next_url = add_query_arg('quiz_page', $current_page + 1, $current_url);
-            $output .= '<a href="' . esc_url($next_url) . '" class="button next-button">Next</a>';
+            $output .= '<button type="button" class="button next-button" data-next-url="' . esc_attr($next_url) . '">Next</button>';
         } else {
             $output .= '<button type="submit" class="button submit-button">Submit Quiz</button>';
         }
@@ -140,18 +136,20 @@ function qb_get_quiz_display($quiz, $questions, $options, $settings) {
                 });
             });
             console.log("=== END DEBUG INFO ===");
-            
-            // Validate required questions before form submission
-            $(".quiz-form").on("submit", function(e) {
-                var form = this;
+              // Function to validate required questions on current page
+            function validateCurrentPage() {
                 var hasErrors = false;
                 var errorMessages = [];
                 
-                // Clear previous error styling
+                // Clear previous error styling and messages
                 $(".question").removeClass("error-required");
                 $(".required-error-message").remove();
+                $(".general-error-message").remove();
                 
-                // Check each required question
+                // Remove any existing asterisks
+                $(".question h3 .required-indicator").remove();
+                
+                // Check each required question on current page
                 $(".question[data-required=\"true\"]").each(function() {
                     var $question = $(this);
                     var questionId = $question.data("question-id");
@@ -159,7 +157,11 @@ function qb_get_quiz_display($quiz, $questions, $options, $settings) {
                     
                     if (!isAnswered) {
                         hasErrors = true;
-                        $question.addClass("error-required");
+                        $question.addClass("error-required");                        // Add asterisk to question title
+                        var $questionTitle = $question.find("h3");
+                        if ($questionTitle.find(".required-indicator").length === 0) {
+                            $questionTitle.append(\' <span class="required-indicator" style="color: #e74c3c; font-weight: bold;">*</span>\');
+                        }
                         
                         // Add error message
                         var questionText = $question.find("h3").text().replace("*", "").trim();
@@ -171,8 +173,6 @@ function qb_get_quiz_display($quiz, $questions, $options, $settings) {
                 });
                 
                 if (hasErrors) {
-                    e.preventDefault();
-                    
                     // Scroll to first error
                     var firstError = $(".question.error-required").first();
                     if (firstError.length) {
@@ -182,12 +182,31 @@ function qb_get_quiz_display($quiz, $questions, $options, $settings) {
                     }
                     
                     // Show general error message
-                    var generalError = $(".general-error-message");
-                    if (generalError.length === 0) {
-                        generalError = $("<div class=\"general-error-message\" style=\"color: #e74c3c; font-size: 16px; font-weight: bold; margin: 20px 0; padding: 15px; background: #ffeaea; border: 1px solid #e74c3c; border-radius: 4px; text-align: center;\">Please answer all required questions (marked with *) before submitting.</div>");
-                        $(".quiz-container").prepend(generalError);
-                    }
-                    
+                    var generalError = $("<div class=\"general-error-message\" style=\"color: #e74c3c; font-size: 16px; font-weight: bold; margin: 20px 0; padding: 15px; background: #ffeaea; border: 1px solid #e74c3c; border-radius: 4px; text-align: center;\">Please answer all required questions (marked with *) before proceeding.</div>");
+                    $(".quiz-container").prepend(generalError);
+                }
+                
+                return !hasErrors;
+            }
+
+            // Handle Next button clicks (for paginated quizzes)
+            $(".next-button").on("click", function(e) {
+                e.preventDefault();
+                
+                if (validateCurrentPage()) {
+                    // If validation passes, navigate to next page
+                    var nextUrl = $(this).data("next-url");
+                    window.location.href = nextUrl;
+                }
+                // If validation fails, the error messages will be shown
+            });
+
+            // Validate required questions before form submission (for non-paginated or final submit)
+            $(".quiz-form").on("submit", function(e) {
+                var form = this;
+                
+                if (!validateCurrentPage()) {
+                    e.preventDefault();
                     return false;
                 }
                 
@@ -287,14 +306,13 @@ function qb_get_quiz_display($quiz, $questions, $options, $settings) {
                 var questionId = $(this).closest(".question").data("question-id");
                 var optionId = $(this).val();
                 console.log("Option changed - Question:", questionId, "Option:", optionId);
-                saveAnswer(questionId, optionId);
-            });
+                saveAnswer(questionId, optionId);            });
               // Load saved answers when page loads
             loadAnswers();
-            
-            // Handle navigation buttons
-            $(".next-button, .prev-button").click(function() {
-                console.log("Navigation clicked, answers saved in localStorage");
+              // Handle Previous button navigation (no validation needed)
+            $(".prev-button").click(function() {
+                console.log("Previous button clicked, answers saved in localStorage");
+                // Previous navigation does not need validation, so it works as normal
             });
             
         })(jQuery);
