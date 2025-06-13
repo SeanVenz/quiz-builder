@@ -84,15 +84,14 @@ function qb_get_quiz_display($quiz, $questions, $options, $settings) {
         // Next/Submit button
         if ($current_page < $total_pages) {
             $current_url = remove_query_arg('quiz_page');
-            $next_url = add_query_arg('quiz_page', $current_page + 1, $current_url);
-            $output .= '<button type="button" class="button next-button" data-next-url="' . esc_attr($next_url) . '">Next</button>';
+            $next_url = add_query_arg('quiz_page', $current_page + 1, $current_url);            $output .= '<button type="button" class="button next-button" data-next-url="' . esc_attr($next_url) . '">Next</button>';
         } else {
-            $output .= '<button type="submit" class="button submit-button">Submit Quiz</button>';
+            $output .= '<button type="button" class="button submit-button">Submit Quiz</button>';
         }
         
         $output .= '</div>';
     } else {
-        $output .= '<button type="submit" class="button submit-button">Submit Quiz</button>';
+        $output .= '<button type="button" class="button submit-button">Submit Quiz</button>';
     }
 
     $output .= '</form>';
@@ -120,9 +119,9 @@ function qb_get_quiz_display($quiz, $questions, $options, $settings) {
                     "question element": $q[0]
                 });
             });
-            console.log("=== END DEBUG INFO ===");
-              // Function to validate required questions on current page
+            console.log("=== END DEBUG INFO ===");            // Function to validate required questions on current page
             function validateCurrentPage() {
+                console.log("=== VALIDATION START ===");
                 var hasErrors = false;
                 var errorMessages = [];
                 
@@ -134,11 +133,17 @@ function qb_get_quiz_display($quiz, $questions, $options, $settings) {
                 // Remove any existing asterisks
                 $(".question h3 .required-indicator").remove();
                 
+                // Count total required questions on this page
+                var totalRequired = $(".question[data-required=\"true\"]").length;
+                console.log("Total required questions on this page:", totalRequired);
+                
                 // Check each required question on current page
                 $(".question[data-required=\"true\"]").each(function() {
                     var $question = $(this);
                     var questionId = $question.data("question-id");
                     var isAnswered = $question.find("input[type=\"radio\"]:checked").length > 0;
+                    
+                    console.log("Question " + questionId + ": required=true, answered=" + isAnswered);
                     
                     if (!isAnswered) {
                         hasErrors = true;
@@ -154,13 +159,17 @@ function qb_get_quiz_display($quiz, $questions, $options, $settings) {
                         $question.append(errorMsg);
                         
                         errorMessages.push(questionText);
+                        console.log("Added error for question " + questionId);
                     }
                 });
+                
+                console.log("Validation result: hasErrors=" + hasErrors + ", errorCount=" + errorMessages.length);
                 
                 if (hasErrors) {
                     // Scroll to first error
                     var firstError = $(".question.error-required").first();
                     if (firstError.length) {
+                        console.log("Scrolling to first error");
                         $("html, body").animate({
                             scrollTop: firstError.offset().top - 100
                         }, 500);
@@ -169,12 +178,12 @@ function qb_get_quiz_display($quiz, $questions, $options, $settings) {
                     // Show general error message
                     var generalError = $("<div class=\"general-error-message\" style=\"color: #e74c3c; font-size: 16px; font-weight: bold; margin: 20px 0; padding: 15px; background: #ffeaea; border: 1px solid #e74c3c; border-radius: 4px; text-align: center;\">Please answer all required questions (marked with *) before proceeding.</div>");
                     $(".quiz-container").prepend(generalError);
+                    console.log("Added general error message");
                 }
                 
+                console.log("=== VALIDATION END ===");
                 return !hasErrors;
-            }
-
-            // Handle Next button clicks (for paginated quizzes)
+            }// Handle Next button clicks (for paginated quizzes)
             $(".next-button").on("click", function(e) {
                 e.preventDefault();
                 
@@ -186,25 +195,37 @@ function qb_get_quiz_display($quiz, $questions, $options, $settings) {
                 // If validation fails, the error messages will be shown
             });
 
-            // Validate required questions before form submission (for non-paginated or final submit)
-            $(".quiz-form").on("submit", function(e) {
-                var form = this;
+            // Handle Submit button clicks (for final page or non-paginated quizzes)
+            $(".submit-button").on("click", function(e) {
+                e.preventDefault();
+                
+                console.log("Submit button clicked, validating...");
                 
                 if (!validateCurrentPage()) {
-                    e.preventDefault();
+                    console.log("Validation failed, preventing submission");
                     return false;
                 }
+                
+                console.log("Validation passed, preparing form submission");
                 
                 // Remove any existing error messages if validation passes
                 $(".general-error-message").remove();
                 
                 // Add all saved answers to the form before submission
-                addSavedAnswersToForm($(this));
+                addSavedAnswersToForm($(".quiz-form"));
                 console.log("Form submitting with all saved answers");
                 
                 // Clear localStorage after adding answers to form
                 localStorage.removeItem(storageKey);
-                return true; // Allow form to submit normally
+                
+                // Submit the form programmatically
+                $(".quiz-form")[0].submit();
+            });            // Keep the form submit handler as a backup, but it should rarely be used now
+            $(".quiz-form").on("submit", function(e) {
+                console.log("Form submit event triggered (backup handler)");
+                // This should not normally run since we are using button click handlers now
+                // But keeping it as a safety net
+                return true;
             });
             
             // Clear error styling when user answers a required question
