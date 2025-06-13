@@ -127,11 +127,10 @@ function handle_delete_quiz_submission() {
 }
 
 function qb_manage_questions_page() {
-    global $wpdb;
-
-    // Add required scripts and styles
+    global $wpdb;    // Add required scripts and styles
     wp_enqueue_script('jquery-ui-sortable');
-    wp_enqueue_style('jquery-ui', 'https://code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css');
+    // Use WordPress built-in jQuery UI styles or add custom styles instead of external CDN
+    wp_enqueue_style('qb-admin-styles', plugin_dir_url(__FILE__) . '../assets/css/admin-styles.css', array(), '1.0.0');
 
     $quiz_id = isset($_GET['quiz_id']) ? intval($_GET['quiz_id']) : 0;
 

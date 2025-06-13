@@ -16,16 +16,14 @@ function qb_calculate_category_scores($quiz_id, $user_answers) {
     $questions_table = $wpdb->prefix . 'qb_questions';
     $categories_table = $wpdb->prefix . 'qb_categories';
     $options_table = $wpdb->prefix . 'qb_options';
+      // Get all questions with their categories
+    $sql = "SELECT q.id, q.question, q.category_id, c.name as category_name, c.color as category_color
+            FROM `{$questions_table}` q 
+            LEFT JOIN `{$categories_table}` c ON q.category_id = c.id 
+            WHERE q.quiz_id = %d 
+            ORDER BY q.`order` ASC";
     
-    // Get all questions with their categories
-    $questions = $wpdb->get_results($wpdb->prepare(
-        "SELECT q.id, q.question, q.category_id, c.name as category_name, c.color as category_color
-         FROM $questions_table q 
-         LEFT JOIN $categories_table c ON q.category_id = c.id 
-         WHERE q.quiz_id = %d 
-         ORDER BY q.`order` ASC",
-        $quiz_id
-    ));
+    $questions = $wpdb->get_results($wpdb->prepare($sql, $quiz_id));
     
     $category_scores = array();
     $category_totals = array();
@@ -45,10 +43,9 @@ function qb_calculate_category_scores($quiz_id, $user_answers) {
                 'questions' => array()
             );
         }
-        
-        // Get the maximum points for this question
+          // Get the maximum points for this question
         $max_points = $wpdb->get_var($wpdb->prepare(
-            "SELECT MAX(points) FROM $options_table WHERE question_id = %d",
+            "SELECT MAX(points) FROM `{$options_table}` WHERE question_id = %d",
             $question->id
         )) ?: 0;
         
@@ -59,7 +56,7 @@ function qb_calculate_category_scores($quiz_id, $user_answers) {
         if (isset($user_answers[$question->id])) {
             $selected_option_id = $user_answers[$question->id];
             $question_score = $wpdb->get_var($wpdb->prepare(
-                "SELECT points FROM $options_table WHERE id = %d",
+                "SELECT points FROM `{$options_table}` WHERE id = %d",
                 $selected_option_id
             )) ?: 0;
         }
@@ -82,9 +79,6 @@ function qb_calculate_category_scores($quiz_id, $user_answers) {
  * Display quiz results template
  */
 function qb_get_quiz_results($quiz, $score, $total_possible_points, $user_answers = array(), $attempt_id = null) {
-    error_log('Displaying quiz results for quiz ID: ' . $quiz->id);
-    error_log('Score: ' . $score . ' out of ' . $total_possible_points);
-
     $percentage = $total_possible_points > 0 ? round(($score / $total_possible_points) * 100) : 0;
 
     // Check if category scores should be displayed
