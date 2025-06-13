@@ -102,52 +102,37 @@ class QB_Quiz_Results_Display {
 
         $output .= '</tbody></table></div>';
         return $output;
-    }
-
-    /**
+    }    /**
      * Get attempt details from database
      */
     private function get_attempt_details($attempt_id) {
-        $query = $this->wpdb->prepare(
-            "SELECT * FROM {$this->wpdb->prefix}qb_attempts WHERE id = %d",
+        $attempts_table = $this->wpdb->prefix . 'qb_attempts';
+        return $this->wpdb->get_row($this->wpdb->prepare(
+            "SELECT * FROM `{$attempts_table}` WHERE id = %d",
             $attempt_id
-        );
-        error_log('QB Debug: Attempt query: ' . $query);
-        $result = $this->wpdb->get_row($query);
-        error_log('QB Debug: Attempt result: ' . print_r($result, true));
-        return $result;
-    }
-
-    /**
+        ));
+    }    /**
      * Get quiz details
      */
     private function get_quiz_details($quiz_id) {
+        $quizzes_table = $this->wpdb->prefix . 'qb_quizzes';
         return $this->wpdb->get_row($this->wpdb->prepare(
-            "SELECT * FROM {$this->wpdb->prefix}qb_quizzes 
-            WHERE id = %d",
+            "SELECT * FROM `{$quizzes_table}` WHERE id = %d",
             $quiz_id
         ));
     }    /**
      * Get attempt answers with question and option details
      */
     public function get_attempt_answers($attempt_id) {
-        error_log('QB Debug: Starting get_attempt_answers with ID: ' . $attempt_id);
-        
         $attempt = $this->get_attempt_details($attempt_id);
         if (!$attempt) {
-            error_log('QB Debug: No attempt found');
             return array();
         }
 
-        error_log('QB Debug: Raw answers data: ' . print_r($attempt->answers, true));
-        
         $answers_data = json_decode($attempt->answers, true);
         if (empty($answers_data)) {
-            error_log('QB Debug: Failed to decode answers JSON or empty data');
             return array();
         }
-
-        error_log('QB Debug: Decoded answers data: ' . print_r($answers_data, true));
 
         // Get all question IDs from the answers
         $question_ids = array();
@@ -156,40 +141,31 @@ class QB_Quiz_Results_Display {
                 $question_ids[] = $data['question_id'];
             }
         }
-        
-        error_log('QB Debug: Extracted question IDs: ' . print_r($question_ids, true));
 
         if (empty($question_ids)) {
-            error_log('QB Debug: No question IDs found');
             return array();
-        }
-
-        // Create placeholders for the IN clause
+        }        // Create placeholders for the IN clause
         $placeholders = implode(',', array_fill(0, count($question_ids), '%d'));
         
+        // Prepare table names
+        $questions_table = $this->wpdb->prefix . 'qb_questions';
+        $options_table = $this->wpdb->prefix . 'qb_options';
+        
         // Get questions with their correct options (highest points option is correct)
-        $query = $this->wpdb->prepare(
-            "SELECT q.id, q.question, 
-                    MAX(o.points) as max_points,
-                    o2.id as correct_option,
-                    o2.option_text as correct_text
-            FROM {$this->wpdb->prefix}qb_questions q
-            LEFT JOIN {$this->wpdb->prefix}qb_options o ON q.id = o.question_id
-            LEFT JOIN {$this->wpdb->prefix}qb_options o2 ON q.id = o2.question_id AND o.points = o2.points
-            WHERE q.id IN ($placeholders)
-            GROUP BY q.id, q.question
-            ORDER BY q.order ASC",
-            $question_ids
-        );
-
-        error_log('QB Debug: Question query: ' . $query);
+        $sql = "SELECT q.id, q.question, 
+                       MAX(o.points) as max_points,
+                       o2.id as correct_option,
+                       o2.option_text as correct_text
+                FROM `{$questions_table}` q
+                LEFT JOIN `{$options_table}` o ON q.id = o.question_id
+                LEFT JOIN `{$options_table}` o2 ON q.id = o2.question_id AND o.points = o2.points
+                WHERE q.id IN ($placeholders)
+                GROUP BY q.id, q.question
+                ORDER BY q.order ASC";
         
-        $questions = $this->wpdb->get_results($query);
-        
-        error_log('QB Debug: Questions found: ' . print_r($questions, true));
+        $questions = $this->wpdb->get_results($this->wpdb->prepare($sql, $question_ids));
 
         if (!$questions) {
-            error_log('QB Debug: No questions found in database');
             return array();
         }
 
@@ -201,24 +177,15 @@ class QB_Quiz_Results_Display {
             }
         }
 
-        error_log('QB Debug: Selected option IDs: ' . print_r($selected_option_ids, true));
-
         // Get all selected options in one query
         $selected_options = array();
         if (!empty($selected_option_ids)) {
             $option_placeholders = implode(',', array_fill(0, count($selected_option_ids), '%d'));
-            $options_query = $this->wpdb->prepare(
-                "SELECT id, option_text 
-                FROM {$this->wpdb->prefix}qb_options 
-                WHERE id IN ($option_placeholders)",
-                $selected_option_ids
-            );
+            $options_sql = "SELECT id, option_text 
+                           FROM `{$options_table}` 
+                           WHERE id IN ($option_placeholders)";
             
-            error_log('QB Debug: Options query: ' . $options_query);
-            
-            $options = $this->wpdb->get_results($options_query);
-            
-            error_log('QB Debug: Options found: ' . print_r($options, true));
+            $options = $this->wpdb->get_results($this->wpdb->prepare($options_sql, $selected_option_ids));
             
             foreach ($options as $option) {
                 $selected_options[$option->id] = $option->option_text;
@@ -242,8 +209,6 @@ class QB_Quiz_Results_Display {
                 }
             }
         }
-
-        error_log('QB Debug: Final results: ' . print_r($results, true));
 
         return $results;
     }
