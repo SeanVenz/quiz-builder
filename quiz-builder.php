@@ -1137,9 +1137,8 @@ function qb_generate_pdf_html($quiz, $attempt, $answers, $percentage, $current_d
             <h1><?php echo esc_html($quiz->title); ?></h1>
             <p>Quiz Results Report</p>
         </div>
-        
-        <div class="score-summary">
-            <div class="score">Final Score: <?php echo $attempt->score; ?> / <?php echo $attempt->total_points; ?> (<?php echo $percentage; ?>%)</div>
+          <div class="score-summary">
+            <div class="score">Final Score: <?php echo esc_html($attempt->score); ?> / <?php echo esc_html($attempt->total_points); ?> (<?php echo esc_html($percentage); ?>%)</div>
             <p>Date Completed: <?php echo esc_html($current_date); ?></p>
         </div>
         
@@ -1168,9 +1167,8 @@ function qb_generate_pdf_html($quiz, $attempt, $answers, $percentage, $current_d
             </tbody>
         </table>
         <?php endif; ?>
-        
-        <div class="footer">
-            <p>Generated on <?php echo current_time('F j, Y \a\t g:i A'); ?></p>
+          <div class="footer">
+            <p>Generated on <?php echo esc_html(current_time('F j, Y \a\t g:i A')); ?></p>
             <p>Quiz Builder Plugin - WordPress</p>
         </div>
     </body>

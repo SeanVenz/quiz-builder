@@ -11,11 +11,10 @@
  */
 ?>
 <div class="attempt-details">
-    <h2>Quiz Attempt Details</h2>
-    <div class="attempt-info">
+    <h2>Quiz Attempt Details</h2>    <div class="attempt-info">
         <p><strong>Quiz:</strong> <?php echo esc_html($quiz->title); ?></p>
         <p><strong>User:</strong> <?php echo esc_html($user ? $user->display_name : 'Guest'); ?></p>
-        <p><strong>Score:</strong> <?php echo esc_html($attempt->score); ?>/<?php echo esc_html($attempt->total_points); ?> (<?php echo round(($attempt->score / $attempt->total_points) * 100); ?>%)</p>
+        <p><strong>Score:</strong> <?php echo esc_html($attempt->score); ?>/<?php echo esc_html($attempt->total_points); ?> (<?php echo esc_html(round(($attempt->score / $attempt->total_points) * 100)); ?>%)</p>
         <p><strong>Date:</strong> <?php echo esc_html($attempt->created_at); ?></p>
     </div>
     <h3>Answers</h3>
