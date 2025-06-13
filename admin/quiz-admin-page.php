@@ -12,10 +12,11 @@ function qb_add_admin_menu()
         'Quiz Builder',
         'manage_options',
         'quiz-builder',
-        'qb_dashboard_page',
-        'dashicons-welcome-learn-more',
+        'qb_dashboard_page',        'dashicons-welcome-learn-more',
         6
-    );    // Submenu pages
+    );
+    
+    // Submenu pages
     add_submenu_page(
         'quiz-builder',
         'Dashboard',
@@ -75,12 +76,15 @@ function qb_add_admin_menu()
 function qb_admin_page_content()
 {
     global $wpdb;
-    $table_name = $wpdb->prefix . 'qb_quizzes';
-
-    // Handle form submission
+    $table_name = $wpdb->prefix . 'qb_quizzes';    // Handle form submission
     if (isset($_POST['qb_add_quiz'])) {
-        $title = sanitize_text_field($_POST['quiz_title']);
-        $description = sanitize_textarea_field($_POST['quiz_description']);
+        // Verify nonce
+        if (!wp_verify_nonce($_POST['qb_add_quiz_nonce'], 'qb_add_quiz_action')) {
+            wp_die('Security check failed');
+        }
+        
+        $title = isset($_POST['quiz_title']) ? sanitize_text_field(wp_unslash($_POST['quiz_title'])) : '';
+        $description = isset($_POST['quiz_description']) ? sanitize_textarea_field(wp_unslash($_POST['quiz_description'])) : '';
 
         if (!empty($title)) {
             $wpdb->insert($table_name, [
@@ -93,14 +97,13 @@ function qb_admin_page_content()
         }
     }
 
-    $quizzes = $wpdb->get_results("SELECT * FROM $table_name ORDER BY created_at DESC");
+    $quizzes = $wpdb->get_results($wpdb->prepare("SELECT * FROM %i ORDER BY created_at DESC", $table_name));
 
     ?>
     <div class="wrap">
-        <h1>Quiz Builder</h1>
-
-        <h2>Add New Quiz</h2>
+        <h1>Quiz Builder</h1>        <h2>Add New Quiz</h2>
         <form method="post">
+            <?php wp_nonce_field('qb_add_quiz_action', 'qb_add_quiz_nonce'); ?>
             <table class="form-table">
                 <tr>
                     <th><label for="quiz_title">Quiz Title</label></th>
@@ -155,15 +158,13 @@ function qb_quiz_attempts_page() {
     global $wpdb;
     $attempts_table = $wpdb->prefix . 'qb_attempts';
     $quizzes_table = $wpdb->prefix . 'qb_quizzes';
-    $users_table = $wpdb->users;
-
-    $attempts = $wpdb->get_results("
+    $users_table = $wpdb->users;    $attempts = $wpdb->get_results($wpdb->prepare("
         SELECT a.*, q.title as quiz_title, u.display_name as user_name 
-        FROM $attempts_table a
-        LEFT JOIN $quizzes_table q ON a.quiz_id = q.id
-        LEFT JOIN $users_table u ON a.user_id = u.ID
+        FROM %i a
+        LEFT JOIN %i q ON a.quiz_id = q.id
+        LEFT JOIN %i u ON a.user_id = u.ID
         ORDER BY a.created_at DESC
-    ");
+    ", $attempts_table, $quizzes_table, $users_table));
     ?>
     <div class="wrap">
         <h1>Quiz Attempts</h1>
@@ -306,7 +307,7 @@ function qb_dashboard_page() {
     
     // Check onboarding completion status
     $onboarding_completed = get_option('qb_onboarding_completed', false);
-    $quiz_count = $wpdb->get_var("SELECT COUNT(*) FROM $quizzes_table");
+    $quiz_count = $wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM %i", $quizzes_table));
     
     // Always show dashboard if onboarding is completed, regardless of quiz count
     // This allows users to return to dashboard after completing onboarding
@@ -342,15 +343,13 @@ function qb_show_dashboard() {
     $quizzes_table = $wpdb->prefix . 'qb_quizzes';
     $questions_table = $wpdb->prefix . 'qb_questions';
     $attempts_table = $wpdb->prefix . 'qb_attempts';
-    
-    // Get statistics
-    $total_quizzes = $wpdb->get_var("SELECT COUNT(*) FROM $quizzes_table");
-    $total_questions = $wpdb->get_var("SELECT COUNT(*) FROM $questions_table");
-    $total_attempts = $wpdb->get_var("SELECT COUNT(*) FROM $attempts_table");
-    $recent_attempts = $wpdb->get_var("SELECT COUNT(*) FROM $attempts_table WHERE created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)");
-    
-    // Get recent quizzes
-    $recent_quizzes = $wpdb->get_results("SELECT * FROM $quizzes_table ORDER BY created_at DESC LIMIT 5");
+      // Get statistics
+    $total_quizzes = $wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM %i", $quizzes_table));
+    $total_questions = $wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM %i", $questions_table));
+    $total_attempts = $wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM %i", $attempts_table));
+    $recent_attempts = $wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM %i WHERE created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)", $attempts_table));
+      // Get recent quizzes
+    $recent_quizzes = $wpdb->get_results($wpdb->prepare("SELECT * FROM %i ORDER BY created_at DESC LIMIT 5", $quizzes_table));
     
     ?>
     <div class="wrap">
@@ -401,12 +400,12 @@ function qb_show_dashboard() {
                     <tbody>
                         <?php foreach ($recent_quizzes as $quiz): ?>
                             <?php
-                            $question_count = $wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM $questions_table WHERE quiz_id = %d", $quiz->id));
+                            $question_count = $wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM %i WHERE quiz_id = %d", $questions_table, $quiz->id));
                             ?>
                             <tr>                                <td><strong><?php echo esc_html($quiz->title); ?></strong></td>
                                 <td><?php echo esc_html(wp_trim_words($quiz->description, 10)); ?></td>
                                 <td><?php echo esc_html($question_count); ?></td>
-                                <td><?php echo esc_html(date('M j, Y', strtotime($quiz->created_at))); ?></td><td>
+                                <td><?php echo esc_html(gmdate('M j, Y', strtotime($quiz->created_at))); ?></td><td>
                                     <a href="<?php echo esc_url(admin_url('admin.php?page=qb-manage-quiz&quiz_id=' . $quiz->id)); ?>" class="button button-small">Manage</a>
                                     <a href="<?php echo esc_url(admin_url('admin.php?page=qb-quiz-settings&quiz_id=' . $quiz->id)); ?>" class="button button-small">Settings</a>
                                 </td>
