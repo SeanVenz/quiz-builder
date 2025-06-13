@@ -11,31 +11,82 @@ if (!defined('ABSPATH')) {
  * Display quiz template
  */
 function qb_get_quiz_display($quiz, $questions, $options, $settings) {
-    // Apply randomization if enabled
-    if (isset($settings->randomize_questions) && $settings->randomize_questions) {
-        shuffle($questions);
+    // Generate a unique session key for this quiz's randomization
+    $quiz_session_key = 'qb_randomized_questions_' . $quiz->id;
+    $options_session_key = 'qb_randomized_options_' . $quiz->id;
+    
+    // Start session if not already started
+    if (session_status() == PHP_SESSION_NONE) {
+        session_start();
     }
     
-    // If answer randomization is enabled, randomize options for each question
-    if (isset($settings->randomize_answers) && $settings->randomize_answers) {
-        // Group options by question_id for easier manipulation
-        $options_by_question = array();
-        foreach ($options as $option) {
-            if (!isset($options_by_question[$option->question_id])) {
-                $options_by_question[$option->question_id] = array();
+    // Apply randomization if enabled, but only once per quiz session
+    if (isset($settings->randomize_questions) && $settings->randomize_questions) {
+        // Check if we have a stored randomized order for this quiz
+        if (isset($_SESSION[$quiz_session_key])) {
+            // Use stored randomized order
+            $randomized_ids = $_SESSION[$quiz_session_key];
+            $questions_by_id = array();
+            foreach ($questions as $question) {
+                $questions_by_id[$question->id] = $question;
             }
-            $options_by_question[$option->question_id][] = $option;
+            // Reorder questions according to stored randomized order
+            $questions = array();
+            foreach ($randomized_ids as $question_id) {
+                if (isset($questions_by_id[$question_id])) {
+                    $questions[] = $questions_by_id[$question_id];
+                }
+            }
+        } else {
+            // First time: randomize and store the order
+            shuffle($questions);
+            $_SESSION[$quiz_session_key] = array_map(function($q) { return $q->id; }, $questions);
         }
-        
-        // Randomize options for each question
-        foreach ($options_by_question as $question_id => $question_options) {
-            shuffle($options_by_question[$question_id]);
-        }
-        
-        // Rebuild the options array with randomized order
-        $options = array();
-        foreach ($options_by_question as $question_options) {
-            $options = array_merge($options, $question_options);
+    }
+    
+    // If answer randomization is enabled, randomize options for each question (also store in session)
+    if (isset($settings->randomize_answers) && $settings->randomize_answers) {
+        // Check if we have stored randomized options
+        if (isset($_SESSION[$options_session_key])) {
+            // Use stored randomized order
+            $stored_options_order = $_SESSION[$options_session_key];
+            $options_by_id = array();
+            foreach ($options as $option) {
+                $options_by_id[$option->id] = $option;
+            }
+            // Reorder options according to stored randomized order
+            $options = array();
+            foreach ($stored_options_order as $option_id) {
+                if (isset($options_by_id[$option_id])) {
+                    $options[] = $options_by_id[$option_id];
+                }
+            }
+        } else {
+            // First time: randomize options and store the order
+            // Group options by question_id for easier manipulation
+            $options_by_question = array();
+            foreach ($options as $option) {
+                if (!isset($options_by_question[$option->question_id])) {
+                    $options_by_question[$option->question_id] = array();
+                }
+                $options_by_question[$option->question_id][] = $option;
+            }
+            
+            // Randomize options for each question
+            foreach ($options_by_question as $question_id => $question_options) {
+                shuffle($options_by_question[$question_id]);
+            }
+            
+            // Rebuild the options array with randomized order and store IDs
+            $options = array();
+            $options_order = array();
+            foreach ($options_by_question as $question_options) {
+                foreach ($question_options as $option) {
+                    $options[] = $option;
+                    $options_order[] = $option->id;
+                }
+            }
+            $_SESSION[$options_session_key] = $options_order;
         }
     }
     

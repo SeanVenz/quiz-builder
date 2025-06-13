@@ -510,7 +510,7 @@ function qb_manage_questions_page() {
                     $categories_db = new QB_Categories_DB();
                     $categories = $categories_db->get_all_categories();
                     if (!empty($categories)): ?>
-                    <!-- <tr>
+                    <tr>
                         <th><label for="category_id">Category</label></th>
                         <td>
                             <select name="category_id" id="category_id">
@@ -523,7 +523,7 @@ function qb_manage_questions_page() {
                             </select>
                             <p class="description">Select a category to organize this question (optional)</p>
                         </td>
-                    </tr> -->
+                    </tr>
                     <?php endif; ?>
                     <tr>
                         <th><label for="question_required">Required Question</label></th>
@@ -539,7 +539,7 @@ function qb_manage_questions_page() {
             <?php if (!empty($categories)): ?>
             <!-- Category Management Tools -->
             <div class="qb-category-tools">
-                <!-- <h3>Category Management Tools</h3>
+                <h3>Category Management Tools</h3>
                 <div class="category-actions">
                     <div class="bulk-category-change">
                         <label for="filter-category">Filter by Category:</label>
@@ -573,7 +573,7 @@ function qb_manage_questions_page() {
                         <button type="button" id="select-all-questions" class="button">Select All</button>
                         <button type="button" id="deselect-all-questions" class="button">Deselect All</button>
                     </div>
-                </div> -->
+                </div>
                 
                 <form method="post" id="bulk-category-form" style="display:none;">
                     <?php wp_nonce_field('qb_manage_questions'); ?>

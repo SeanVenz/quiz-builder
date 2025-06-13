@@ -122,15 +122,25 @@ function qb_display_quiz($atts) {
         return '<div class="error"><p>No questions available for this quiz.</p></div>';
     }
 
-    $options = $wpdb->get_results($wpdb->prepare("SELECT * FROM $options_table WHERE question_id IN (SELECT id FROM $questions_table WHERE quiz_id = %d)", $quiz_id));
-
-    // Get quiz settings
+    $options = $wpdb->get_results($wpdb->prepare("SELECT * FROM $options_table WHERE question_id IN (SELECT id FROM $questions_table WHERE quiz_id = %d)", $quiz_id));    // Get quiz settings
     $settings = $wpdb->get_row($wpdb->prepare("SELECT * FROM $settings_table WHERE quiz_id = %d", $quiz_id));
     if (!$settings) {
         $settings = (object) array(
             'is_paginated' => 0,
             'questions_per_page' => 1
         );
+    }
+
+    // Clear randomization session if this is a fresh start (no pagination parameter)
+    if (!isset($_GET['quiz_page']) && session_status() != PHP_SESSION_DISABLED) {
+        if (session_status() == PHP_SESSION_NONE) {
+            session_start();
+        }
+        // Clear any existing randomization for this quiz
+        $quiz_session_key = 'qb_randomized_questions_' . $quiz_id;
+        $options_session_key = 'qb_randomized_options_' . $quiz_id;
+        unset($_SESSION[$quiz_session_key]);
+        unset($_SESSION[$options_session_key]);
     }
 
     return qb_get_quiz_display($quiz, $questions, $options, $settings);
@@ -268,9 +278,18 @@ function qb_handle_quiz_submission() {
             wp_send_json_error('Failed to save quiz attempt');
         }
         return;
-    }
+    }    error_log('Successfully stored quiz attempt with random ID: ' . $random_id);
 
-    error_log('Successfully stored quiz attempt with random ID: ' . $random_id);
+    // Clear randomization session data for this quiz since it's completed
+    if (session_status() != PHP_SESSION_DISABLED) {
+        if (session_status() == PHP_SESSION_NONE) {
+            session_start();
+        }
+        $quiz_session_key = 'qb_randomized_questions_' . $quiz_id;
+        $options_session_key = 'qb_randomized_options_' . $quiz_id;
+        unset($_SESSION[$quiz_session_key]);
+        unset($_SESSION[$options_session_key]);
+    }
 
     // Get the results page URL
     $results_page = get_page_by_path('quiz-results');
