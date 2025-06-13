@@ -9,8 +9,7 @@ add_action('admin_post_qb_add_category', 'qb_handle_add_category');
 add_action('admin_post_qb_edit_category', 'qb_handle_edit_category');
 add_action('admin_post_qb_delete_category', 'qb_handle_delete_category');
 
-function qb_handle_add_category() {
-    if (!current_user_can('manage_options')) {
+function qb_handle_add_category() {    if (!current_user_can('manage_options')) {
         wp_die('Unauthorized');
     }
 
@@ -18,9 +17,9 @@ function qb_handle_add_category() {
     
     $categories_db = new QB_Categories_DB();
     
-    $name = sanitize_text_field($_POST['category_name']);
-    $description = sanitize_textarea_field($_POST['category_description']);
-    $color = sanitize_hex_color($_POST['category_color']);
+    $name = isset($_POST['category_name']) ? sanitize_text_field(wp_unslash($_POST['category_name'])) : '';
+    $description = isset($_POST['category_description']) ? sanitize_textarea_field(wp_unslash($_POST['category_description'])) : '';
+    $color = isset($_POST['category_color']) ? sanitize_hex_color(wp_unslash($_POST['category_color'])) : '';
     
     if (empty($name)) {
         wp_safe_redirect(add_query_arg(array(
@@ -53,8 +52,7 @@ function qb_handle_add_category() {
     exit;
 }
 
-function qb_handle_edit_category() {
-    if (!current_user_can('manage_options')) {
+function qb_handle_edit_category() {    if (!current_user_can('manage_options')) {
         wp_die('Unauthorized');
     }
 
@@ -62,10 +60,10 @@ function qb_handle_edit_category() {
     
     $categories_db = new QB_Categories_DB();
     
-    $category_id = intval($_POST['category_id']);
-    $name = sanitize_text_field($_POST['category_name']);
-    $description = sanitize_textarea_field($_POST['category_description']);
-    $color = sanitize_hex_color($_POST['category_color']);
+    $category_id = isset($_POST['category_id']) ? intval($_POST['category_id']) : 0;
+    $name = isset($_POST['category_name']) ? sanitize_text_field(wp_unslash($_POST['category_name'])) : '';
+    $description = isset($_POST['category_description']) ? sanitize_textarea_field(wp_unslash($_POST['category_description'])) : '';
+    $color = isset($_POST['category_color']) ? sanitize_hex_color(wp_unslash($_POST['category_color'])) : '';
     
     if (empty($name)) {
         wp_safe_redirect(add_query_arg(array(
@@ -98,15 +96,14 @@ function qb_handle_edit_category() {
     exit;
 }
 
-function qb_handle_delete_category() {
-    if (!current_user_can('manage_options')) {
+function qb_handle_delete_category() {    if (!current_user_can('manage_options')) {
         wp_die('Unauthorized');
     }
 
     check_admin_referer('qb_delete_category');
     
     $categories_db = new QB_Categories_DB();
-    $category_id = intval($_POST['category_id']);
+    $category_id = isset($_POST['category_id']) ? intval($_POST['category_id']) : 0;
     
     $result = $categories_db->delete_category($category_id);
     
@@ -128,10 +125,10 @@ function qb_handle_delete_category() {
  */
 function qb_categories_page() {
     $categories_db = new QB_Categories_DB();
-    
-    // Show messages
+      // Show messages
     if (isset($_GET['message'])) {
-        switch ($_GET['message']) {
+        $message = sanitize_text_field($_GET['message']);
+        switch ($message) {
             case 'category_added':
                 echo '<div class="notice notice-success is-dismissible"><p>Category added successfully!</p></div>';
                 break;
@@ -253,7 +250,7 @@ function qb_categories_page() {
                                     <td>
                                         <span class="question-count"><?php echo intval($question_count); ?></span>
                                     </td>
-                                    <td><?php echo esc_html(date('M j, Y', strtotime($category->created_at))); ?></td>
+                                    <td><?php echo esc_html(gmdate('M j, Y', strtotime($category->created_at))); ?></td>
                                     <td>
                                         <div class="row-actions">
                                             <button class="button edit-category" data-id="<?php echo esc_attr($category->id); ?>">Edit</button>
