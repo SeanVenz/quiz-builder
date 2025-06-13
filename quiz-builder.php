@@ -135,18 +135,19 @@ function qb_display_quiz($atts) {
     // Use WordPress user identifier for logged-in users, or create a simpler one for guests
     $user_identifier = get_current_user_id();
     if (!$user_identifier) {
-        // For non-logged-in users, use a combination of IP + a simple session identifier
-        // First check if we have a quiz session stored in options table
-        $quiz_session_option = 'qb_quiz_session_' . $quiz_id;
+        // For non-logged-in users, create a browser-specific session identifier
+        // Use IP + User Agent to create a unique identifier per browser
+        $browser_fingerprint = md5($_SERVER['REMOTE_ADDR'] . $_SERVER['HTTP_USER_AGENT']);
+        $quiz_session_option = 'qb_quiz_session_' . $quiz_id . '_' . $browser_fingerprint;
         $user_identifier = get_option($quiz_session_option);
         
         if (!$user_identifier) {
             // Create a new session identifier
             $user_identifier = 'guest_' . time() . '_' . rand(1000, 9999);
             update_option($quiz_session_option, $user_identifier, false); // Don't autoload
-            error_log("Quiz " . $quiz_id . " - Created new guest session: " . $user_identifier);
+            error_log("Quiz " . $quiz_id . " - Created new guest session: " . $user_identifier . " for browser: " . substr($browser_fingerprint, 0, 8));
         } else {
-            error_log("Quiz " . $quiz_id . " - Using existing guest session: " . $user_identifier);
+            error_log("Quiz " . $quiz_id . " - Using existing guest session: " . $user_identifier . " for browser: " . substr($browser_fingerprint, 0, 8));
         }
     }
       $quiz_transient_key = 'qb_questions_' . $quiz_id . '_' . $user_identifier;
@@ -154,16 +155,32 @@ function qb_display_quiz($atts) {
     
     // Debug: Log user identifier and transient keys
     error_log("Quiz " . $quiz_id . " - User identifier: " . $user_identifier);
-    error_log("Quiz " . $quiz_id . " - Transient key: " . $quiz_transient_key);
-      // Clear randomization only if this is truly a fresh start
+    error_log("Quiz " . $quiz_id . " - Transient key: " . $quiz_transient_key);    // Clear randomization only if this is truly a fresh start
     $is_fresh_start = false;
     
     // Check if this is a fresh start by looking at various indicators
     if (!isset($_GET['quiz_page'])) {
         // No quiz_page parameter means this could be a fresh start
-        if (!isset($_SERVER['HTTP_REFERER']) || 
-            strpos($_SERVER['HTTP_REFERER'], 'quiz_page=') === false) {
-            $is_fresh_start = true;
+        // For guest users, also check if they have existing session data
+        if (get_current_user_id()) {
+            // Logged-in user: check referrer
+            if (!isset($_SERVER['HTTP_REFERER']) || 
+                strpos($_SERVER['HTTP_REFERER'], 'quiz_page=') === false) {
+                $is_fresh_start = true;
+            }
+        } else {
+            // Guest user: check if they have existing randomization data
+            $existing_order = get_transient($quiz_transient_key);
+            if (!$existing_order) {
+                // No existing randomization data = fresh start
+                $is_fresh_start = true;
+            } else {
+                // Has existing data, check referrer to see if they're coming from outside the quiz
+                if (!isset($_SERVER['HTTP_REFERER']) || 
+                    strpos($_SERVER['HTTP_REFERER'], 'quiz_page=') === false) {
+                    $is_fresh_start = true;
+                }
+            }
         }
     }
     
@@ -180,12 +197,12 @@ function qb_display_quiz($atts) {
         // Clear any existing randomization for this quiz
         delete_transient($quiz_transient_key);
         delete_transient($options_transient_key);
-        
-        // Also clear the quiz session for guest users
+          // Also clear the quiz session for guest users
         if (!get_current_user_id()) {
-            $quiz_session_option = 'qb_quiz_session_' . $quiz_id;
+            $browser_fingerprint = md5($_SERVER['REMOTE_ADDR'] . $_SERVER['HTTP_USER_AGENT']);
+            $quiz_session_option = 'qb_quiz_session_' . $quiz_id . '_' . $browser_fingerprint;
             delete_option($quiz_session_option);
-            error_log("Quiz " . $quiz_id . " - Cleared guest session option");
+            error_log("Quiz " . $quiz_id . " - Cleared guest session option for browser: " . substr($browser_fingerprint, 0, 8));
         }
         
         error_log("Quiz " . $quiz_id . " - Cleared transients (fresh start)");
