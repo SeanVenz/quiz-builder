@@ -510,7 +510,7 @@ function qb_manage_questions_page() {
                     $categories_db = new QB_Categories_DB();
                     $categories = $categories_db->get_all_categories();
                     if (!empty($categories)): ?>
-                    <tr>
+                    <!-- <tr>
                         <th><label for="category_id">Category</label></th>
                         <td>
                             <select name="category_id" id="category_id">
@@ -523,7 +523,7 @@ function qb_manage_questions_page() {
                             </select>
                             <p class="description">Select a category to organize this question (optional)</p>
                         </td>
-                    </tr>
+                    </tr> -->
                     <?php endif; ?>
                     <tr>
                         <th><label for="question_required">Required Question</label></th>
@@ -538,7 +538,7 @@ function qb_manage_questions_page() {
 
             <?php if (!empty($categories)): ?>
             <!-- Category Management Tools -->
-            <div class="qb-category-tools">
+            <!-- <div class="qb-category-tools">
                 <h3>Category Management Tools</h3>
                 <div class="category-actions">
                     <div class="bulk-category-change">
@@ -594,7 +594,7 @@ function qb_manage_questions_page() {
                     <input type="hidden" name="question_id" id="toggle-required-question-id">
                     <input type="hidden" name="required" id="toggle-required-status">
                 </form>
-            </div>
+            </div> -->
             <hr>
             <?php endif; ?>
 

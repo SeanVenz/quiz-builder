@@ -89,33 +89,34 @@ function qb_quiz_settings_page() {
                             <input type="checkbox" name="show_user_answers" id="show_user_answers" value="1">
                             <p class="description">Show detailed results including user's answers and correct answers after quiz completion.</p>
                         </td>
-                    </tr>                    <tr>
+                    <!-- </tr>                    <tr>
                         <th><label for="allow_pdf_export">Allow PDF Export</label></th>
                         <td>
                             <input type="checkbox" name="allow_pdf_export" id="allow_pdf_export" value="1">
                             <p class="description">Allow users to download their quiz results as a PDF file.</p>
                         </td>
-                    </tr>
+                    </tr> -->
                     <tr>
                         <th><label for="randomize_questions">Randomize Questions</label></th>
                         <td>
                             <input type="checkbox" name="randomize_questions" id="randomize_questions" value="1">
                             <p class="description">Randomize the order of questions each time the quiz is taken.</p>
                         </td>
-                    </tr>                    <tr>
+                    </tr>                    
+                    <!-- <tr>
                         <th><label for="randomize_answers">Randomize Answer Options</label></th>
                         <td>
                             <input type="checkbox" name="randomize_answers" id="randomize_answers" value="1">
                             <p class="description">Randomize the order of answer options for each question.</p>
                         </td>
-                    </tr>
-                    <tr>
+                    </tr> -->
+                    <!-- <tr>
                         <th><label for="show_category_scores">Show Sub-score Calculations</label></th>
                         <td>
                             <input type="checkbox" name="show_category_scores" id="show_category_scores" value="1">
                             <p class="description">Display category-based scoring breakdown in quiz results. Shows individual scores for each question category used in the quiz.</p>
                         </td>
-                    </tr>
+                    </tr> -->
                 </table>
                 <?php submit_button('Save Settings', 'primary', 'qb_save_settings'); ?>
             </form>
