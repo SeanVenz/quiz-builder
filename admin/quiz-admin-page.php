@@ -136,7 +136,7 @@ function qb_admin_page_content()
                             <td><?php echo esc_html($quiz->description); ?></td>
                             <td><?php echo esc_html($quiz->created_at); ?></td>
                             <td>
-                                <a href="<?php echo admin_url('admin.php?page=qb-manage-questions&quiz_id=' . $quiz->id); ?>">Manage
+                                <a href="<?php echo esc_url(admin_url('admin.php?page=qb-manage-questions&quiz_id=' . $quiz->id)); ?>">Manage
                                     Questions</a>
                             </td>
 
@@ -171,7 +171,7 @@ function qb_quiz_attempts_page() {
         <?php if ($attempts): ?>
             <div class="tablenav top">
                 <div class="alignleft actions">
-                    <!-- <a href="<?php echo wp_nonce_url(admin_url('admin-ajax.php?action=qb_export_attempts_csv'), 'qb_export_csv', 'nonce'); ?>" class="button">Export to CSV</a> -->
+                    <!-- <a href="<?php echo esc_url(wp_nonce_url(admin_url('admin-ajax.php?action=qb_export_attempts_csv'), 'qb_export_csv', 'nonce')); ?>" class="button">Export to CSV</a> -->
                 </div>
                 <br class="clear">
             </div>
@@ -262,11 +262,10 @@ function qb_quiz_attempts_page() {
                                 method: 'POST',
                                 headers: {
                                     'Content-Type': 'application/x-www-form-urlencoded',
-                                },
-                                body: new URLSearchParams({
+                                },                                body: new URLSearchParams({
                                     action: 'qb_get_attempt_details',
                                     attempt_id: attemptId,
-                                    nonce: '<?php echo wp_create_nonce('qb_attempt_details'); ?>'
+                                    nonce: <?php echo wp_json_encode(wp_create_nonce('qb_attempt_details')); ?>
                                 })
                             })
                             .then(response => response.json())
@@ -357,33 +356,31 @@ function qb_show_dashboard() {
     <div class="wrap">
         <h1>Quiz Builder Dashboard</h1>
         
-        <!-- Statistics Cards -->
-        <div class="qb-stats-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin: 20px 0;">
+        <!-- Statistics Cards -->        <div class="qb-stats-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin: 20px 0;">
             <div class="qb-stat-card" style="background: #fff; padding: 20px; border: 1px solid #ddd; border-radius: 5px;">
                 <h3 style="margin: 0 0 10px 0; color: #666;">Total Quizzes</h3>
-                <p style="font-size: 24px; font-weight: bold; margin: 0; color: #2271b1;"><?php echo $total_quizzes; ?></p>
+                <p style="font-size: 24px; font-weight: bold; margin: 0; color: #2271b1;"><?php echo esc_html($total_quizzes); ?></p>
             </div>
             <div class="qb-stat-card" style="background: #fff; padding: 20px; border: 1px solid #ddd; border-radius: 5px;">
                 <h3 style="margin: 0 0 10px 0; color: #666;">Total Questions</h3>
-                <p style="font-size: 24px; font-weight: bold; margin: 0; color: #00a32a;"><?php echo $total_questions; ?></p>
+                <p style="font-size: 24px; font-weight: bold; margin: 0; color: #00a32a;"><?php echo esc_html($total_questions); ?></p>
             </div>
             <div class="qb-stat-card" style="background: #fff; padding: 20px; border: 1px solid #ddd; border-radius: 5px;">
                 <h3 style="margin: 0 0 10px 0; color: #666;">Total Attempts</h3>
-                <p style="font-size: 24px; font-weight: bold; margin: 0; color: #d63638;"><?php echo $total_attempts; ?></p>
+                <p style="font-size: 24px; font-weight: bold; margin: 0; color: #d63638;"><?php echo esc_html($total_attempts); ?></p>
             </div>
             <div class="qb-stat-card" style="background: #fff; padding: 20px; border: 1px solid #ddd; border-radius: 5px;">
                 <h3 style="margin: 0 0 10px 0; color: #666;">Recent Attempts (7 days)</h3>
-                <p style="font-size: 24px; font-weight: bold; margin: 0; color: #f56e00;"><?php echo $recent_attempts; ?></p>
+                <p style="font-size: 24px; font-weight: bold; margin: 0; color: #f56e00;"><?php echo esc_html($recent_attempts); ?></p>
             </div>
         </div>
         
-        <!-- Quick Actions -->
-        <div class="qb-quick-actions" style="margin: 30px 0;">
+        <!-- Quick Actions -->        <div class="qb-quick-actions" style="margin: 30px 0;">
             <h2>Quick Actions</h2>
             <p>
-                <a href="<?php echo admin_url('admin.php?page=qb-manage-quiz'); ?>" class="button button-primary">Create New Quiz</a>
-                <a href="<?php echo admin_url('admin.php?page=qb-quiz-attempts'); ?>" class="button">View All Attempts</a>
-                <a href="<?php echo admin_url('admin.php?page=qb-quiz-settings'); ?>" class="button">Quiz Settings</a>
+                <a href="<?php echo esc_url(admin_url('admin.php?page=qb-manage-quiz')); ?>" class="button button-primary">Create New Quiz</a>
+                <a href="<?php echo esc_url(admin_url('admin.php?page=qb-quiz-attempts')); ?>" class="button">View All Attempts</a>
+                <a href="<?php echo esc_url(admin_url('admin.php?page=qb-quiz-settings')); ?>" class="button">Quiz Settings</a>
             </p>
         </div>
         
@@ -406,21 +403,19 @@ function qb_show_dashboard() {
                             <?php
                             $question_count = $wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM $questions_table WHERE quiz_id = %d", $quiz->id));
                             ?>
-                            <tr>
-                                <td><strong><?php echo esc_html($quiz->title); ?></strong></td>
+                            <tr>                                <td><strong><?php echo esc_html($quiz->title); ?></strong></td>
                                 <td><?php echo esc_html(wp_trim_words($quiz->description, 10)); ?></td>
-                                <td><?php echo $question_count; ?></td>
-                                <td><?php echo date('M j, Y', strtotime($quiz->created_at)); ?></td>
-                                <td>
-                                    <a href="<?php echo admin_url('admin.php?page=qb-manage-quiz&quiz_id=' . $quiz->id); ?>" class="button button-small">Manage</a>
-                                    <a href="<?php echo admin_url('admin.php?page=qb-quiz-settings&quiz_id=' . $quiz->id); ?>" class="button button-small">Settings</a>
+                                <td><?php echo esc_html($question_count); ?></td>
+                                <td><?php echo esc_html(date('M j, Y', strtotime($quiz->created_at))); ?></td><td>
+                                    <a href="<?php echo esc_url(admin_url('admin.php?page=qb-manage-quiz&quiz_id=' . $quiz->id)); ?>" class="button button-small">Manage</a>
+                                    <a href="<?php echo esc_url(admin_url('admin.php?page=qb-quiz-settings&quiz_id=' . $quiz->id)); ?>" class="button button-small">Settings</a>
                                 </td>
                             </tr>
                         <?php endforeach; ?>
                     </tbody>
                 </table>
             <?php else: ?>
-                <p>No quizzes created yet. <a href="<?php echo admin_url('admin.php?page=qb-manage-quiz'); ?>">Create your first quiz</a>!</p>
+                <p>No quizzes created yet. <a href="<?php echo esc_url(admin_url('admin.php?page=qb-manage-quiz')); ?>">Create your first quiz</a>!</p>
             <?php endif; ?>
         </div>
     </div>

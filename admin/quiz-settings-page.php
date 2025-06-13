@@ -147,13 +147,11 @@ function qb_quiz_settings_page() {
                     randomizeQuestions.checked = false;
                     randomizeAnswers.checked = false;
                     showCategoryScores.checked = false;
-                }
-
-                function loadQuizSettings(quizId) {
+                }                function loadQuizSettings(quizId) {
                     $.post(ajaxurl, {
                         action: 'qb_get_quiz_settings',
                         quiz_id: quizId,
-                        nonce: '<?php echo wp_create_nonce('qb_get_settings'); ?>'
+                        nonce: <?php echo wp_json_encode(wp_create_nonce('qb_get_settings')); ?>
                     })
                     .done(function(response) {
                         if (response.success && response.data) {                            const settings = response.data;
@@ -194,9 +192,8 @@ function qb_quiz_settings_page() {
                 });
             });
             </script>
-        <?php else: ?>
-            <div class="notice notice-warning">
-                <p>No quizzes found. Please <a href="<?php echo admin_url('admin.php?page=quiz-builder'); ?>">create a quiz</a> first.</p>
+        <?php else: ?>            <div class="notice notice-warning">
+                <p>No quizzes found. Please <a href="<?php echo esc_url(admin_url('admin.php?page=quiz-builder')); ?>">create a quiz</a> first.</p>
             </div>
         <?php endif; ?>
     </div>

@@ -61,13 +61,13 @@ class QB_PDF_Manager {
             $dompdf->loadHtml($html_content);
             $dompdf->setPaper('A4', 'portrait');
             $dompdf->render();
-            
-            // Output PDF
+              // Output PDF
             header('Content-Type: application/pdf');
             header('Content-Disposition: attachment; filename="' . $filename . '"');
             header('Cache-Control: no-cache, must-revalidate');
             header('Expires: 0');
             
+            // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- PDF binary output should not be escaped
             echo $dompdf->output();
             exit;
             
@@ -116,13 +116,13 @@ class QB_PDF_Manager {
     private static function generate_with_browser_pdf($html_content, $filename, $title) {
         // Add print-specific styles and JavaScript
         $print_optimized_html = self::optimize_html_for_pdf($html_content, $title);
-        
-        // Set headers for HTML response that will guide users to save as PDF
+          // Set headers for HTML response that will guide users to save as PDF
         header('Content-Type: text/html; charset=UTF-8');
         header('Content-Disposition: inline; filename="' . str_replace('.pdf', '.html', $filename) . '"');
         header('Cache-Control: no-cache, must-revalidate');
         header('Expires: 0');
         
+        // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Pre-processed HTML for PDF generation
         echo $print_optimized_html;
         exit;
     }/**

@@ -853,9 +853,8 @@ function qb_manage_questions_page() {
                     'name' => $category->name
                 );
             }
-        }        ?>
-        var categoriesData = <?php echo json_encode($categories_js); ?>;
-        var qbNonceField = '<?php echo wp_nonce_field('qb_manage_questions', '_wpnonce', true, false); ?>';
+        }        ?>        var categoriesData = <?php echo wp_json_encode($categories_js); ?>;
+        var qbNonceField = <?php echo wp_json_encode(wp_nonce_field('qb_manage_questions', '_wpnonce', true, false)); ?>;
         
         // Initialize sortable
         $('#questions-list').sortable({
