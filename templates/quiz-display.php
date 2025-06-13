@@ -10,86 +10,7 @@ if (!defined('ABSPATH')) {
 /**
  * Display quiz template
  */
-function qb_get_quiz_display($quiz, $questions, $options, $settings) {
-    // Generate a unique session key for this quiz's randomization
-    $quiz_session_key = 'qb_randomized_questions_' . $quiz->id;
-    $options_session_key = 'qb_randomized_options_' . $quiz->id;
-    
-    // Start session if not already started
-    if (session_status() == PHP_SESSION_NONE) {
-        session_start();
-    }
-    
-    // Apply randomization if enabled, but only once per quiz session
-    if (isset($settings->randomize_questions) && $settings->randomize_questions) {
-        // Check if we have a stored randomized order for this quiz
-        if (isset($_SESSION[$quiz_session_key])) {
-            // Use stored randomized order
-            $randomized_ids = $_SESSION[$quiz_session_key];
-            $questions_by_id = array();
-            foreach ($questions as $question) {
-                $questions_by_id[$question->id] = $question;
-            }
-            // Reorder questions according to stored randomized order
-            $questions = array();
-            foreach ($randomized_ids as $question_id) {
-                if (isset($questions_by_id[$question_id])) {
-                    $questions[] = $questions_by_id[$question_id];
-                }
-            }
-        } else {
-            // First time: randomize and store the order
-            shuffle($questions);
-            $_SESSION[$quiz_session_key] = array_map(function($q) { return $q->id; }, $questions);
-        }
-    }
-    
-    // If answer randomization is enabled, randomize options for each question (also store in session)
-    if (isset($settings->randomize_answers) && $settings->randomize_answers) {
-        // Check if we have stored randomized options
-        if (isset($_SESSION[$options_session_key])) {
-            // Use stored randomized order
-            $stored_options_order = $_SESSION[$options_session_key];
-            $options_by_id = array();
-            foreach ($options as $option) {
-                $options_by_id[$option->id] = $option;
-            }
-            // Reorder options according to stored randomized order
-            $options = array();
-            foreach ($stored_options_order as $option_id) {
-                if (isset($options_by_id[$option_id])) {
-                    $options[] = $options_by_id[$option_id];
-                }
-            }
-        } else {
-            // First time: randomize options and store the order
-            // Group options by question_id for easier manipulation
-            $options_by_question = array();
-            foreach ($options as $option) {
-                if (!isset($options_by_question[$option->question_id])) {
-                    $options_by_question[$option->question_id] = array();
-                }
-                $options_by_question[$option->question_id][] = $option;
-            }
-            
-            // Randomize options for each question
-            foreach ($options_by_question as $question_id => $question_options) {
-                shuffle($options_by_question[$question_id]);
-            }
-            
-            // Rebuild the options array with randomized order and store IDs
-            $options = array();
-            $options_order = array();
-            foreach ($options_by_question as $question_options) {
-                foreach ($question_options as $option) {
-                    $options[] = $option;
-                    $options_order[] = $option->id;
-                }
-            }
-            $_SESSION[$options_session_key] = $options_order;
-        }
-    }
-    
+function qb_get_quiz_display($quiz, $questions, $options, $settings) {    
     $output = '<div class="quiz-container" data-quiz-id="' . esc_attr($quiz->id) . '">';
     $output .= '<h2>' . esc_html($quiz->title) . '</h2>';
     
@@ -106,6 +27,9 @@ function qb_get_quiz_display($quiz, $questions, $options, $settings) {
         $total_pages = ceil(count($questions) / $questions_per_page);
         $current_page = isset($_GET['quiz_page']) ? max(1, min(intval($_GET['quiz_page']), $total_pages)) : 1;
         
+        // Debug: Log pagination info
+        error_log("Quiz " . $quiz->id . " - Template pagination: total questions=" . count($questions) . ", questions_per_page=" . $questions_per_page . ", total_pages=" . $total_pages . ", current_page=" . $current_page);
+        
         $output .= '<div class="quiz-pagination-info">';
         $output .= '<span class="current-page">Page ' . esc_html($current_page) . ' of ' . esc_html($total_pages) . '</span>';
         $output .= '</div>';
@@ -114,19 +38,28 @@ function qb_get_quiz_display($quiz, $questions, $options, $settings) {
         $end_index = min($start_index + $questions_per_page, count($questions));
         
         $current_questions = array_slice($questions, $start_index, $questions_per_page);
+        
+        // Debug: Log current page questions
+        error_log("Quiz " . $quiz->id . " - Page " . $current_page . " questions: " . implode(',', array_map(function($q) { return $q->id; }, $current_questions)));
     } else {
         $current_questions = $questions;
-    }    $output .= '<div class="questions-container">';
+        error_log("Quiz " . $quiz->id . " - Non-paginated, using all questions: " . implode(',', array_map(function($q) { return $q->id; }, $current_questions)));
+    }
+
+    $output .= '<div class="questions-container">';
     foreach ($current_questions as $question) {
         $required_attr = isset($question->required) && $question->required ? ' data-required="true"' : '';
         $output .= '<div class="question" data-question-id="' . esc_attr($question->id) . '"' . $required_attr . '>';
-          $question_title = esc_html($question->question);
+        
+        $question_title = esc_html($question->question);
         // Note: Asterisk will be added dynamically when validation fails
         $output .= '<h3>' . $question_title . '</h3>';
         
         $question_options = array_filter($options, function($option) use ($question) {
             return $option->question_id == $question->id;
-        });        $output .= '<div class="options">';
+        });
+
+        $output .= '<div class="options">';
         foreach ($question_options as $option) {
             $output .= '<label class="option">';
             $required_html = (isset($question->required) && $question->required) ? ' required' : '';
@@ -147,7 +80,8 @@ function qb_get_quiz_display($quiz, $questions, $options, $settings) {
             $prev_url = add_query_arg('quiz_page', $current_page - 1, $current_url);
             $output .= '<a href="' . esc_url($prev_url) . '" class="button prev-button">Previous</a>';
         }
-          // Next/Submit button
+        
+        // Next/Submit button
         if ($current_page < $total_pages) {
             $current_url = remove_query_arg('quiz_page');
             $next_url = add_query_arg('quiz_page', $current_page + 1, $current_url);
