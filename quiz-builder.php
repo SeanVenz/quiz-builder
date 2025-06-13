@@ -115,23 +115,179 @@ function qb_display_quiz($atts) {
     $quiz = $wpdb->get_row($wpdb->prepare("SELECT * FROM $quiz_table WHERE id = %d", $quiz_id));
     if (!$quiz) {
         return '<div class="error"><p>Quiz not found!</p></div>';
-    }
-
-    $questions = $wpdb->get_results($wpdb->prepare("SELECT * FROM $questions_table WHERE quiz_id = %d ORDER BY `order` ASC, id ASC", $quiz_id));
+    }    $questions = $wpdb->get_results($wpdb->prepare("SELECT * FROM $questions_table WHERE quiz_id = %d ORDER BY `order` ASC, id ASC", $quiz_id));
     if (!$questions) {
         return '<div class="error"><p>No questions available for this quiz.</p></div>';
     }
 
-    $options = $wpdb->get_results($wpdb->prepare("SELECT * FROM $options_table WHERE question_id IN (SELECT id FROM $questions_table WHERE quiz_id = %d)", $quiz_id));
+    // Debug: Log initial questions
+    error_log("Quiz " . $quiz_id . " - Initial questions order: " . implode(',', array_map(function($q) { return $q->id; }, $questions)));$options = $wpdb->get_results($wpdb->prepare("SELECT * FROM $options_table WHERE question_id IN (SELECT id FROM $questions_table WHERE quiz_id = %d)", $quiz_id));
 
     // Get quiz settings
     $settings = $wpdb->get_row($wpdb->prepare("SELECT * FROM $settings_table WHERE quiz_id = %d", $quiz_id));
     if (!$settings) {
         $settings = (object) array(
             'is_paginated' => 0,
-            'questions_per_page' => 1
-        );
+            'questions_per_page' => 1,
+            'randomize_questions' => 0,
+            'randomize_answers' => 0
+        );    }    // Handle randomization BEFORE pagination
+    // Use WordPress user identifier for logged-in users, or create a simpler one for guests
+    $user_identifier = get_current_user_id();
+    if (!$user_identifier) {
+        // For non-logged-in users, create a browser-specific session identifier
+        // Use IP + User Agent to create a unique identifier per browser
+        $browser_fingerprint = md5($_SERVER['REMOTE_ADDR'] . $_SERVER['HTTP_USER_AGENT']);
+        $quiz_session_option = 'qb_quiz_session_' . $quiz_id . '_' . $browser_fingerprint;
+        $user_identifier = get_option($quiz_session_option);
+        
+        if (!$user_identifier) {
+            // Create a new session identifier
+            $user_identifier = 'guest_' . time() . '_' . rand(1000, 9999);
+            update_option($quiz_session_option, $user_identifier, false); // Don't autoload
+            error_log("Quiz " . $quiz_id . " - Created new guest session: " . $user_identifier . " for browser: " . substr($browser_fingerprint, 0, 8));
+        } else {
+            error_log("Quiz " . $quiz_id . " - Using existing guest session: " . $user_identifier . " for browser: " . substr($browser_fingerprint, 0, 8));
+        }
     }
+      $quiz_transient_key = 'qb_questions_' . $quiz_id . '_' . $user_identifier;
+    $options_transient_key = 'qb_options_' . $quiz_id . '_' . $user_identifier;
+    
+    // Debug: Log user identifier and transient keys
+    error_log("Quiz " . $quiz_id . " - User identifier: " . $user_identifier);
+    error_log("Quiz " . $quiz_id . " - Transient key: " . $quiz_transient_key);    // Clear randomization only if this is truly a fresh start
+    $is_fresh_start = false;
+    
+    // Check if this is a fresh start by looking at various indicators
+    if (!isset($_GET['quiz_page'])) {
+        // No quiz_page parameter means this could be a fresh start
+        // For guest users, also check if they have existing session data
+        if (get_current_user_id()) {
+            // Logged-in user: check referrer
+            if (!isset($_SERVER['HTTP_REFERER']) || 
+                strpos($_SERVER['HTTP_REFERER'], 'quiz_page=') === false) {
+                $is_fresh_start = true;
+            }
+        } else {
+            // Guest user: check if they have existing randomization data
+            $existing_order = get_transient($quiz_transient_key);
+            if (!$existing_order) {
+                // No existing randomization data = fresh start
+                $is_fresh_start = true;
+            } else {
+                // Has existing data, check referrer to see if they're coming from outside the quiz
+                if (!isset($_SERVER['HTTP_REFERER']) || 
+                    strpos($_SERVER['HTTP_REFERER'], 'quiz_page=') === false) {
+                    $is_fresh_start = true;
+                }
+            }
+        }
+    }
+    
+    // Also check for a specific "reset" parameter
+    if (isset($_GET['reset_quiz'])) {
+        $is_fresh_start = true;
+    }
+    
+    // Debug: Log fresh start detection
+    $referer = isset($_SERVER['HTTP_REFERER']) ? $_SERVER['HTTP_REFERER'] : 'none';
+    $quiz_page_param = isset($_GET['quiz_page']) ? $_GET['quiz_page'] : 'none';
+    error_log("Quiz " . $quiz_id . " - Fresh start check: quiz_page=" . $quiz_page_param . ", referer=" . $referer . ", is_fresh_start=" . ($is_fresh_start ? 'YES' : 'NO'));
+      if ($is_fresh_start) {
+        // Clear any existing randomization for this quiz
+        delete_transient($quiz_transient_key);
+        delete_transient($options_transient_key);
+          // Also clear the quiz session for guest users
+        if (!get_current_user_id()) {
+            $browser_fingerprint = md5($_SERVER['REMOTE_ADDR'] . $_SERVER['HTTP_USER_AGENT']);
+            $quiz_session_option = 'qb_quiz_session_' . $quiz_id . '_' . $browser_fingerprint;
+            delete_option($quiz_session_option);
+            error_log("Quiz " . $quiz_id . " - Cleared guest session option for browser: " . substr($browser_fingerprint, 0, 8));
+        }
+        
+        error_log("Quiz " . $quiz_id . " - Cleared transients (fresh start)");
+    }
+      // Apply question randomization if enabled
+    if (isset($settings->randomize_questions) && $settings->randomize_questions) {
+        $stored_order = get_transient($quiz_transient_key);
+        error_log("Quiz " . $quiz_id . " - Checking for stored order: " . ($stored_order ? 'FOUND' : 'NOT_FOUND'));
+        if ($stored_order) {
+            error_log("Quiz " . $quiz_id . " - Stored order: " . implode(',', $stored_order));
+        }
+        
+        if ($stored_order && is_array($stored_order)) {
+            // Use stored randomized order
+            $questions_by_id = array();
+            foreach ($questions as $question) {
+                $questions_by_id[$question->id] = $question;
+            }
+            // Reorder questions according to stored randomized order
+            $reordered_questions = array();
+            foreach ($stored_order as $question_id) {
+                if (isset($questions_by_id[$question_id])) {
+                    $reordered_questions[] = $questions_by_id[$question_id];
+                }
+            }
+            $questions = $reordered_questions;
+            error_log("Quiz " . $quiz_id . " - Used stored question order: " . implode(',', $stored_order));
+        } else {
+            // First time: randomize and store the order
+            shuffle($questions);
+            $question_ids = array_map(function($q) { return $q->id; }, $questions);
+            $transient_set = set_transient($quiz_transient_key, $question_ids, 3600); // Store for 1 hour
+            error_log("Quiz " . $quiz_id . " - Created new random question order: " . implode(',', $question_ids));
+            error_log("Quiz " . $quiz_id . " - Transient set result: " . ($transient_set ? 'SUCCESS' : 'FAILED'));
+        }
+    }
+    
+    // Apply answer randomization if enabled
+    if (isset($settings->randomize_answers) && $settings->randomize_answers) {
+        $stored_options_order = get_transient($options_transient_key);
+        if ($stored_options_order && is_array($stored_options_order)) {
+            // Use stored randomized order
+            $options_by_id = array();
+            foreach ($options as $option) {
+                $options_by_id[$option->id] = $option;
+            }
+            // Reorder options according to stored randomized order
+            $reordered_options = array();
+            foreach ($stored_options_order as $option_id) {
+                if (isset($options_by_id[$option_id])) {
+                    $reordered_options[] = $options_by_id[$option_id];
+                }
+            }
+            $options = $reordered_options;
+            error_log("Quiz " . $quiz_id . " - Used stored options order");
+        } else {
+            // First time: randomize options per question and store the order
+            $options_by_question = array();
+            foreach ($options as $option) {
+                if (!isset($options_by_question[$option->question_id])) {
+                    $options_by_question[$option->question_id] = array();
+                }
+                $options_by_question[$option->question_id][] = $option;
+            }
+            
+            // Randomize options for each question
+            foreach ($options_by_question as $question_id => $question_options) {
+                shuffle($options_by_question[$question_id]);
+            }
+            
+            // Rebuild the options array and store the order
+            $options = array();
+            $options_order = array();
+            foreach ($options_by_question as $question_options) {
+                foreach ($question_options as $option) {
+                    $options[] = $option;
+                    $options_order[] = $option->id;
+                }
+            }
+            set_transient($options_transient_key, $options_order, 3600); // Store for 1 hour            error_log("Quiz " . $quiz_id . " - Created new random options order");
+        }
+    }
+
+    // Debug: Log final questions after randomization
+    error_log("Quiz " . $quiz_id . " - Final questions order: " . implode(',', array_map(function($q) { return $q->id; }, $questions)));
 
     return qb_get_quiz_display($quiz, $questions, $options, $settings);
 }
@@ -185,11 +341,34 @@ function qb_handle_quiz_submission() {
             wp_send_json_error('Quiz not found');
         }
         return;
-    }
-
-    $score = 0;
+    }    $score = 0;
     $questions = $wpdb->get_results($wpdb->prepare("SELECT * FROM $questions_table WHERE quiz_id = %d", $quiz_id));
     $answers = array();
+    
+    // Check required questions validation
+    $required_questions = array_filter($questions, function($q) { return isset($q->required) && $q->required; });
+    $unanswered_required = array();
+    
+    foreach ($required_questions as $req_question) {
+        $selected_option_id = isset($_POST['question_' . $req_question->id]) ? intval($_POST['question_' . $req_question->id]) : 0;
+        if (!$selected_option_id) {
+            $unanswered_required[] = $req_question->question;
+        }
+    }
+    
+    if (!empty($unanswered_required)) {
+        error_log('Required questions not answered: ' . implode(', ', $unanswered_required));
+        if (wp_doing_ajax()) {
+            wp_send_json_error('Please answer all required questions before submitting.');
+        } else {
+            // Redirect back with error message
+            $redirect_url = wp_get_referer() ? wp_get_referer() : home_url();
+            $redirect_url = add_query_arg('quiz_error', 'required_questions', $redirect_url);
+            wp_safe_redirect($redirect_url);
+            exit;
+        }
+        return;
+    }
 
     foreach ($questions as $question) {
         $selected_option_id = isset($_POST['question_' . $question->id]) ? intval($_POST['question_' . $question->id]) : 0;
@@ -245,9 +424,18 @@ function qb_handle_quiz_submission() {
             wp_send_json_error('Failed to save quiz attempt');
         }
         return;
-    }
+    }    error_log('Successfully stored quiz attempt with random ID: ' . $random_id);
 
-    error_log('Successfully stored quiz attempt with random ID: ' . $random_id);
+    // Clear randomization session data for this quiz since it's completed
+    if (session_status() != PHP_SESSION_DISABLED) {
+        if (session_status() == PHP_SESSION_NONE) {
+            session_start();
+        }
+        $quiz_session_key = 'qb_randomized_questions_' . $quiz_id;
+        $options_session_key = 'qb_randomized_options_' . $quiz_id;
+        unset($_SESSION[$quiz_session_key]);
+        unset($_SESSION[$options_session_key]);
+    }
 
     // Get the results page URL
     $results_page = get_page_by_path('quiz-results');
@@ -314,14 +502,23 @@ function qb_display_quiz_results() {
         // Use the detailed results display class
         require_once QB_PATH . 'includes/results/class-quiz-results-display.php';
         $results_display = new QB_Quiz_Results_Display();
-        return $results_display->display_results($attempt->id);
-    } else {
+        return $results_display->display_results($attempt->id);    } else {
         // Use basic template output
         $score = $attempt->score;
         $total_possible_points = $attempt->total_points;
-        ob_start();
-        include QB_PATH . 'templates/quiz-results-html.php';
-        return ob_get_clean();
+        
+        // Parse user answers for category scores
+        $user_answers = json_decode($attempt->answers, true);
+        $answer_map = array();
+        if ($user_answers) {
+            foreach ($user_answers as $answer) {
+                $answer_map[$answer['question_id']] = $answer['option_id'];
+            }
+        }
+        
+        // Include results template
+        require_once QB_PATH . 'templates/quiz-results.php';
+        return qb_get_quiz_results($quiz, $score, $total_possible_points, $answer_map, $attempt->id);
     }
 }
 

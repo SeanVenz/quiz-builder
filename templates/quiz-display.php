@@ -10,35 +10,7 @@ if (!defined('ABSPATH')) {
 /**
  * Display quiz template
  */
-function qb_get_quiz_display($quiz, $questions, $options, $settings) {
-    // Apply randomization if enabled
-    if (isset($settings->randomize_questions) && $settings->randomize_questions) {
-        shuffle($questions);
-    }
-    
-    // If answer randomization is enabled, randomize options for each question
-    if (isset($settings->randomize_answers) && $settings->randomize_answers) {
-        // Group options by question_id for easier manipulation
-        $options_by_question = array();
-        foreach ($options as $option) {
-            if (!isset($options_by_question[$option->question_id])) {
-                $options_by_question[$option->question_id] = array();
-            }
-            $options_by_question[$option->question_id][] = $option;
-        }
-        
-        // Randomize options for each question
-        foreach ($options_by_question as $question_id => $question_options) {
-            shuffle($options_by_question[$question_id]);
-        }
-        
-        // Rebuild the options array with randomized order
-        $options = array();
-        foreach ($options_by_question as $question_options) {
-            $options = array_merge($options, $question_options);
-        }
-    }
-    
+function qb_get_quiz_display($quiz, $questions, $options, $settings) {    
     $output = '<div class="quiz-container" data-quiz-id="' . esc_attr($quiz->id) . '">';
     $output .= '<h2>' . esc_html($quiz->title) . '</h2>';
     
@@ -49,13 +21,14 @@ function qb_get_quiz_display($quiz, $questions, $options, $settings) {
     $output .= '<form method="post" class="quiz-form" id="quiz-form-' . esc_attr($quiz->id) . '">';
     $output .= wp_nonce_field('qb_quiz_submission', 'qb_quiz_nonce', true, false);
     $output .= '<input type="hidden" name="action" value="qb_handle_quiz_submission">';
-    $output .= '<input type="hidden" name="quiz_id" value="' . esc_attr($quiz->id) . '">';
-
-    // Group questions into pages if pagination is enabled
+    $output .= '<input type="hidden" name="quiz_id" value="' . esc_attr($quiz->id) . '">';    // Group questions into pages if pagination is enabled
     if ($settings->is_paginated) {
         $questions_per_page = max(1, intval($settings->questions_per_page));
         $total_pages = ceil(count($questions) / $questions_per_page);
-        $current_page = isset($_GET['page']) ? max(1, min(intval($_GET['page']), $total_pages)) : 1;
+        $current_page = isset($_GET['quiz_page']) ? max(1, min(intval($_GET['quiz_page']), $total_pages)) : 1;
+        
+        // Debug: Log pagination info
+        error_log("Quiz " . $quiz->id . " - Template pagination: total questions=" . count($questions) . ", questions_per_page=" . $questions_per_page . ", total_pages=" . $total_pages . ", current_page=" . $current_page);
         
         $output .= '<div class="quiz-pagination-info">';
         $output .= '<span class="current-page">Page ' . esc_html($current_page) . ' of ' . esc_html($total_pages) . '</span>';
@@ -65,14 +38,22 @@ function qb_get_quiz_display($quiz, $questions, $options, $settings) {
         $end_index = min($start_index + $questions_per_page, count($questions));
         
         $current_questions = array_slice($questions, $start_index, $questions_per_page);
+        
+        // Debug: Log current page questions
+        error_log("Quiz " . $quiz->id . " - Page " . $current_page . " questions: " . implode(',', array_map(function($q) { return $q->id; }, $current_questions)));
     } else {
         $current_questions = $questions;
+        error_log("Quiz " . $quiz->id . " - Non-paginated, using all questions: " . implode(',', array_map(function($q) { return $q->id; }, $current_questions)));
     }
 
     $output .= '<div class="questions-container">';
     foreach ($current_questions as $question) {
-        $output .= '<div class="question" data-question-id="' . esc_attr($question->id) . '">';
-        $output .= '<h3>' . esc_html($question->question) . '</h3>';
+        $required_attr = isset($question->required) && $question->required ? ' data-required="true"' : '';
+        $output .= '<div class="question" data-question-id="' . esc_attr($question->id) . '"' . $required_attr . '>';
+        
+        $question_title = esc_html($question->question);
+        // Note: Asterisk will be added dynamically when validation fails
+        $output .= '<h3>' . $question_title . '</h3>';
         
         $question_options = array_filter($options, function($option) use ($question) {
             return $option->question_id == $question->id;
@@ -81,7 +62,8 @@ function qb_get_quiz_display($quiz, $questions, $options, $settings) {
         $output .= '<div class="options">';
         foreach ($question_options as $option) {
             $output .= '<label class="option">';
-            $output .= '<input type="radio" name="question_' . esc_attr($question->id) . '" value="' . esc_attr($option->id) . '" required>';
+            $required_html = (isset($question->required) && $question->required) ? ' required' : '';
+            $output .= '<input type="radio" name="question_' . esc_attr($question->id) . '" value="' . esc_attr($option->id) . '"' . $required_html . '>';
             $output .= '<span class="option-text">' . esc_html($option->option_text) . '</span>';
             $output .= '</label>';
         }
@@ -92,25 +74,24 @@ function qb_get_quiz_display($quiz, $questions, $options, $settings) {
 
     // Add navigation buttons if pagination is enabled
     if ($settings->is_paginated) {
-        $output .= '<div class="quiz-navigation">';
-        
-        // Previous button
+        $output .= '<div class="quiz-navigation">';        // Previous button
         if ($current_page > 1) {
-            $prev_url = add_query_arg('page', $current_page - 1);
+            $current_url = remove_query_arg('quiz_page');
+            $prev_url = add_query_arg('quiz_page', $current_page - 1, $current_url);
             $output .= '<a href="' . esc_url($prev_url) . '" class="button prev-button">Previous</a>';
         }
         
         // Next/Submit button
         if ($current_page < $total_pages) {
-            $next_url = add_query_arg('page', $current_page + 1);
-            $output .= '<a href="' . esc_url($next_url) . '" class="button next-button">Next</a>';
+            $current_url = remove_query_arg('quiz_page');
+            $next_url = add_query_arg('quiz_page', $current_page + 1, $current_url);            $output .= '<button type="button" class="button next-button" data-next-url="' . esc_attr($next_url) . '">Next</button>';
         } else {
-            $output .= '<button type="submit" class="button submit-button">Submit Quiz</button>';
+            $output .= '<button type="button" class="button submit-button">Submit Quiz</button>';
         }
         
         $output .= '</div>';
     } else {
-        $output .= '<button type="submit" class="button submit-button">Submit Quiz</button>';
+        $output .= '<button type="button" class="button submit-button">Submit Quiz</button>';
     }
 
     $output .= '</form>';
@@ -125,6 +106,141 @@ function qb_get_quiz_display($quiz, $questions, $options, $settings) {
         }
 
         (function($) {
+            // Debug: Log all questions and their required status
+            console.log("=== QUIZ DEBUG INFO ===");
+            $(".question").each(function() {
+                var $q = $(this);
+                var qId = $q.data("question-id");
+                var isRequired = $q.data("required");
+                var hasRequiredInputs = $q.find("input[required]").length;
+                console.log("Question " + qId + ":", {
+                    "data-required": isRequired,
+                    "has required inputs": hasRequiredInputs,
+                    "question element": $q[0]
+                });
+            });
+            console.log("=== END DEBUG INFO ===");            // Function to validate required questions on current page
+            function validateCurrentPage() {
+                console.log("=== VALIDATION START ===");
+                var hasErrors = false;
+                var errorMessages = [];
+                
+                // Clear previous error styling and messages
+                $(".question").removeClass("error-required");
+                $(".required-error-message").remove();
+                $(".general-error-message").remove();
+                
+                // Remove any existing asterisks
+                $(".question h3 .required-indicator").remove();
+                
+                // Count total required questions on this page
+                var totalRequired = $(".question[data-required=\"true\"]").length;
+                console.log("Total required questions on this page:", totalRequired);
+                
+                // Check each required question on current page
+                $(".question[data-required=\"true\"]").each(function() {
+                    var $question = $(this);
+                    var questionId = $question.data("question-id");
+                    var isAnswered = $question.find("input[type=\"radio\"]:checked").length > 0;
+                    
+                    console.log("Question " + questionId + ": required=true, answered=" + isAnswered);
+                    
+                    if (!isAnswered) {
+                        hasErrors = true;
+                        $question.addClass("error-required");                        // Add asterisk to question title
+                        var $questionTitle = $question.find("h3");
+                        if ($questionTitle.find(".required-indicator").length === 0) {
+                            $questionTitle.append(\' <span class="required-indicator" style="color: #e74c3c; font-weight: bold;">*</span>\');
+                        }
+                        
+                        // Add error message
+                        var questionText = $question.find("h3").text().replace("*", "").trim();
+                        var errorMsg = $("<div class=\"required-error-message\" style=\"color: #e74c3c; font-size: 14px; margin-top: 10px; padding: 10px; background: #ffeaea; border: 1px solid #e74c3c; border-radius: 4px;\">This question is required and must be answered before proceeding.</div>");
+                        $question.append(errorMsg);
+                        
+                        errorMessages.push(questionText);
+                        console.log("Added error for question " + questionId);
+                    }
+                });
+                
+                console.log("Validation result: hasErrors=" + hasErrors + ", errorCount=" + errorMessages.length);
+                
+                if (hasErrors) {
+                    // Scroll to first error
+                    var firstError = $(".question.error-required").first();
+                    if (firstError.length) {
+                        console.log("Scrolling to first error");
+                        $("html, body").animate({
+                            scrollTop: firstError.offset().top - 100
+                        }, 500);
+                    }
+                    
+                    // Show general error message
+                    var generalError = $("<div class=\"general-error-message\" style=\"color: #e74c3c; font-size: 16px; font-weight: bold; margin: 20px 0; padding: 15px; background: #ffeaea; border: 1px solid #e74c3c; border-radius: 4px; text-align: center;\">Please answer all required questions (marked with *) before proceeding.</div>");
+                    $(".quiz-container").prepend(generalError);
+                    console.log("Added general error message");
+                }
+                
+                console.log("=== VALIDATION END ===");
+                return !hasErrors;
+            }// Handle Next button clicks (for paginated quizzes)
+            $(".next-button").on("click", function(e) {
+                e.preventDefault();
+                
+                if (validateCurrentPage()) {
+                    // If validation passes, navigate to next page
+                    var nextUrl = $(this).data("next-url");
+                    window.location.href = nextUrl;
+                }
+                // If validation fails, the error messages will be shown
+            });
+
+            // Handle Submit button clicks (for final page or non-paginated quizzes)
+            $(".submit-button").on("click", function(e) {
+                e.preventDefault();
+                
+                console.log("Submit button clicked, validating...");
+                
+                if (!validateCurrentPage()) {
+                    console.log("Validation failed, preventing submission");
+                    return false;
+                }
+                
+                console.log("Validation passed, preparing form submission");
+                
+                // Remove any existing error messages if validation passes
+                $(".general-error-message").remove();
+                
+                // Add all saved answers to the form before submission
+                addSavedAnswersToForm($(".quiz-form"));
+                console.log("Form submitting with all saved answers");
+                
+                // Clear localStorage after adding answers to form
+                localStorage.removeItem(storageKey);
+                
+                // Submit the form programmatically
+                $(".quiz-form")[0].submit();
+            });            // Keep the form submit handler as a backup, but it should rarely be used now
+            $(".quiz-form").on("submit", function(e) {
+                console.log("Form submit event triggered (backup handler)");
+                // This should not normally run since we are using button click handlers now
+                // But keeping it as a safety net
+                return true;
+            });
+            
+            // Clear error styling when user answers a required question
+            $(document).on("change", ".question[data-required=\"true\"] input[type=\"radio\"]", function() {
+                var $question = $(this).closest(".question");
+                $question.removeClass("error-required");
+                $question.find(".required-error-message").remove();
+                
+                // Check if all required questions are now answered
+                var unansweredRequired = $(".question[data-required=\"true\"]:not(:has(input[type=\"radio\"]:checked))").length;
+                if (unansweredRequired === 0) {
+                    $(".general-error-message").remove();
+                }
+            });
+            
             // Debug check
             console.log("Quiz script initialized");
             
@@ -196,26 +312,13 @@ function qb_get_quiz_display($quiz, $questions, $options, $settings) {
                 var questionId = $(this).closest(".question").data("question-id");
                 var optionId = $(this).val();
                 console.log("Option changed - Question:", questionId, "Option:", optionId);
-                saveAnswer(questionId, optionId);
-            });
-            
-            // Load saved answers when page loads
+                saveAnswer(questionId, optionId);            });
+              // Load saved answers when page loads
             loadAnswers();
-            
-            // Handle form submission
-            $(".quiz-form").on("submit", function(e) {
-                // Add all saved answers to the form before submission
-                addSavedAnswersToForm($(this));
-                console.log("Form submitting with all saved answers");
-                
-                // Clear localStorage after adding answers to form
-                localStorage.removeItem(storageKey);
-                return true; // Allow form to submit normally
-            });
-            
-            // Handle navigation buttons
-            $(".next-button, .prev-button").click(function() {
-                console.log("Navigation clicked, answers saved in localStorage");
+              // Handle Previous button navigation (no validation needed)
+            $(".prev-button").click(function() {
+                console.log("Previous button clicked, answers saved in localStorage");
+                // Previous navigation does not need validation, so it works as normal
             });
             
         })(jQuery);
@@ -261,13 +364,44 @@ function qb_get_quiz_display($quiz, $questions, $options, $settings) {
         margin-top: 30px;
         display: flex;
         justify-content: space-between;
-    }
-    .quiz-pagination-info {
+    }    .quiz-pagination-info {
         margin-bottom: 20px;
         text-align: center;
         font-weight: bold;
     }
+    .required-indicator {
+        color: #e74c3c;
+        font-weight: bold;
+        margin-left: 5px;
+    }
+    .question.error-required {
+        border: 2px solid #e74c3c;
+        background: #ffeaea;
+    }
+    .question.error-required h3 {
+        color: #e74c3c;
+    }
+    .general-error-message {
+        color: #e74c3c;
+        font-size: 16px;
+        font-weight: bold;
+        margin: 20px 0;
+        padding: 15px;
+        background: #ffeaea;
+        border: 1px solid #e74c3c;
+        border-radius: 4px;
+        text-align: center;
+    }
+    .required-error-message {
+        color: #e74c3c;
+        font-size: 14px;
+        margin-top: 10px;
+        padding: 10px;
+        background: #ffeaea;
+        border: 1px solid #e74c3c;
+        border-radius: 4px;
+    }
     </style>';
 
     return $output;
-} 
+}

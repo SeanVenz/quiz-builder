@@ -41,7 +41,12 @@ class QB_Quiz_Results_Display {
             $attempt->score,
             $attempt->total_points,
             $percentage
-        );        // Only show detailed results if enabled in settings
+        );        // Show category scores if enabled
+        if ($settings && $settings->show_category_scores) {
+            $output .= $this->get_category_scores($attempt_id, $quiz_id);
+        }
+
+        // Only show detailed results if enabled in settings
         if ($settings && $settings->show_user_answers) {
             $output .= $this->get_detailed_results($attempt_id);
         }
@@ -264,7 +269,77 @@ class QB_Quiz_Results_Display {
                     📄 Download PDF Results
                 </a>
             </div>',
-            esc_url($export_url)
-        );
+            esc_url($export_url)        );
+    }
+
+    /**
+     * Get category scores breakdown
+     */
+    private function get_category_scores($attempt_id, $quiz_id) {
+        // Get attempt details to get the answers
+        $attempt = $this->get_attempt_details($attempt_id);
+        if (!$attempt) {
+            return '';
+        }
+
+        // Parse user answers
+        $user_answers_data = json_decode($attempt->answers, true);
+        if (empty($user_answers_data)) {
+            return '';
+        }
+
+        // Convert to the format expected by qb_calculate_category_scores
+        $user_answers = array();
+        foreach ($user_answers_data as $answer) {
+            if (isset($answer['question_id']) && isset($answer['option_id'])) {
+                $user_answers[$answer['question_id']] = $answer['option_id'];
+            }
+        }
+
+        if (empty($user_answers)) {
+            return '';
+        }
+
+        // Include the quiz-results.php file to access the qb_calculate_category_scores function
+        require_once plugin_dir_path(__FILE__) . '../../templates/quiz-results.php';
+        
+        // Calculate category scores
+        $category_scores = qb_calculate_category_scores($quiz_id, $user_answers);
+        
+        if (empty($category_scores)) {
+            return '';
+        }
+
+        $output = '<div style="margin: 30px 0; padding: 20px; background: white; border-radius: 6px; border: 1px solid #ddd;">';
+        $output .= '<h4 style="color: #333; margin-bottom: 15px; text-align: center;">Category Breakdown</h4>';
+        
+        foreach ($category_scores as $category_id => $category) {
+            $cat_percentage = $category['total'] > 0 ? round(($category['score'] / $category['total']) * 100) : 0;
+            
+            $output .= '<div style="margin-bottom: 15px; padding: 15px; background: #f8f9fa; border-radius: 4px; border-left: 4px solid ' . esc_attr($category['color']) . ';">';
+            $output .= '<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">';
+            $output .= '<span style="font-weight: bold; color: #333;">' . esc_html($category['name']) . '</span>';
+            $output .= '<span style="font-weight: bold;">' . esc_html($category['score']) . '/' . esc_html($category['total']) . ' (' . esc_html($cat_percentage) . '%)</span>';
+            $output .= '</div>';
+            
+            // Show individual question breakdown
+            if (!empty($category['questions'])) {
+                $output .= '<div style="font-size: 14px; color: #666; margin-top: 8px;">';
+                foreach ($category['questions'] as $question_data) {
+                    $q_percentage = $question_data['max_points'] > 0 ? round(($question_data['score'] / $question_data['max_points']) * 100) : 0;
+                    $output .= '<div style="margin: 4px 0; padding: 6px 0; border-bottom: 1px solid #eee;">';
+                    $output .= '<span style="display: inline-block; width: 70%;">' . esc_html($question_data['question']) . '</span>';
+                    $output .= '<span style="float: right;">' . esc_html($question_data['score']) . '/' . esc_html($question_data['max_points']) . ' (' . esc_html($q_percentage) . '%)</span>';
+                    $output .= '</div>';
+                }
+                $output .= '</div>';
+            }
+            
+            $output .= '</div>';
+        }
+        
+        $output .= '</div>';
+        
+        return $output;
     }
 }

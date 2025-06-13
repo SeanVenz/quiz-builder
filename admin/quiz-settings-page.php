@@ -16,14 +16,14 @@ function qb_quiz_settings_page() {
     if (isset($_POST['qb_save_settings'])) {
         check_admin_referer('qb_save_settings');
           $quiz_id = intval($_POST['quiz_id']);
-        
-        $settings = array(
+          $settings = array(
             'is_paginated' => isset($_POST['is_paginated']) ? 1 : 0,
             'questions_per_page' => max(1, intval($_POST['questions_per_page'])),
             'show_user_answers' => isset($_POST['show_user_answers']) ? 1 : 0,
             'allow_pdf_export' => isset($_POST['allow_pdf_export']) ? 1 : 0,
             'randomize_questions' => isset($_POST['randomize_questions']) ? 1 : 0,
-            'randomize_answers' => isset($_POST['randomize_answers']) ? 1 : 0
+            'randomize_answers' => isset($_POST['randomize_answers']) ? 1 : 0,
+            'show_category_scores' => isset($_POST['show_category_scores']) ? 1 : 0
         );
         
         $result = $settings_db->save_settings($quiz_id, $settings);
@@ -83,13 +83,15 @@ function qb_quiz_settings_page() {
                             <input type="number" name="questions_per_page" id="questions_per_page" value="1" min="1" required>
                             <p class="description">Number of questions to show on each page when pagination is enabled.</p>
                         </td>
-                    </tr>                    <tr>
+                    </tr>                    
+                    <tr>
                         <th><label for="show_user_answers">Show User Answers</label></th>
                         <td>
                             <input type="checkbox" name="show_user_answers" id="show_user_answers" value="1">
                             <p class="description">Show detailed results including user's answers and correct answers after quiz completion.</p>
                         </td>
-                    </tr>                    <tr>
+                    </tr>                    
+                    <tr>
                         <th><label for="allow_pdf_export">Allow PDF Export</label></th>
                         <td>
                             <input type="checkbox" name="allow_pdf_export" id="allow_pdf_export" value="1">
@@ -102,12 +104,19 @@ function qb_quiz_settings_page() {
                             <input type="checkbox" name="randomize_questions" id="randomize_questions" value="1">
                             <p class="description">Randomize the order of questions each time the quiz is taken.</p>
                         </td>
-                    </tr>
+                    </tr>                    
                     <tr>
                         <th><label for="randomize_answers">Randomize Answer Options</label></th>
                         <td>
                             <input type="checkbox" name="randomize_answers" id="randomize_answers" value="1">
                             <p class="description">Randomize the order of answer options for each question.</p>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th><label for="show_category_scores">Show Sub-score Calculations</label></th>
+                        <td>
+                            <input type="checkbox" name="show_category_scores" id="show_category_scores" value="1">
+                            <p class="description">Display category-based scoring breakdown in quiz results. Shows individual scores for each question category used in the quiz.</p>
                         </td>
                     </tr>
                 </table>
@@ -118,10 +127,10 @@ function qb_quiz_settings_page() {
                 const quizSelect = document.getElementById('quiz_id');
                 const isPaginated = document.getElementById('is_paginated');
                 const questionsPerPage = document.getElementById('questions_per_page');
-                const showUserAnswers = document.getElementById('show_user_answers');
-                const allowPdfExport = document.getElementById('allow_pdf_export');
+                const showUserAnswers = document.getElementById('show_user_answers');                const allowPdfExport = document.getElementById('allow_pdf_export');
                 const randomizeQuestions = document.getElementById('randomize_questions');
                 const randomizeAnswers = document.getElementById('randomize_answers');
+                const showCategoryScores = document.getElementById('show_category_scores');
 
                 // Load settings when quiz is selected
                 quizSelect.addEventListener('change', function() {
@@ -137,6 +146,7 @@ function qb_quiz_settings_page() {
                     allowPdfExport.checked = false;
                     randomizeQuestions.checked = false;
                     randomizeAnswers.checked = false;
+                    showCategoryScores.checked = false;
                 }
 
                 function loadQuizSettings(quizId) {
@@ -150,10 +160,10 @@ function qb_quiz_settings_page() {
                             
                             isPaginated.checked = settings.is_paginated === '1' || settings.is_paginated === 1;
                             questionsPerPage.value = settings.questions_per_page || 1;
-                            showUserAnswers.checked = settings.show_user_answers === '1' || settings.show_user_answers === 1;
-                            allowPdfExport.checked = settings.allow_pdf_export === '1' || settings.allow_pdf_export === 1;
+                            showUserAnswers.checked = settings.show_user_answers === '1' || settings.show_user_answers === 1;                            allowPdfExport.checked = settings.allow_pdf_export === '1' || settings.allow_pdf_export === 1;
                             randomizeQuestions.checked = settings.randomize_questions === '1' || settings.randomize_questions === 1;
                             randomizeAnswers.checked = settings.randomize_answers === '1' || settings.randomize_answers === 1;
+                            showCategoryScores.checked = settings.show_category_scores === '1' || settings.show_category_scores === 1;
                         } else {
                             resetToDefaults();
                         }
