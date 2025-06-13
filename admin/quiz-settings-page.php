@@ -83,13 +83,15 @@ function qb_quiz_settings_page() {
                             <input type="number" name="questions_per_page" id="questions_per_page" value="1" min="1" required>
                             <p class="description">Number of questions to show on each page when pagination is enabled.</p>
                         </td>
-                    </tr>                    <tr>
+                    </tr>                    
+                    <tr>
                         <th><label for="show_user_answers">Show User Answers</label></th>
                         <td>
                             <input type="checkbox" name="show_user_answers" id="show_user_answers" value="1">
                             <p class="description">Show detailed results including user's answers and correct answers after quiz completion.</p>
                         </td>
-                    <!-- </tr>                    <tr>
+                    </tr>                    
+                    <!-- <tr>
                         <th><label for="allow_pdf_export">Allow PDF Export</label></th>
                         <td>
                             <input type="checkbox" name="allow_pdf_export" id="allow_pdf_export" value="1">

@@ -538,8 +538,8 @@ function qb_manage_questions_page() {
 
             <?php if (!empty($categories)): ?>
             <!-- Category Management Tools -->
-            <!-- <div class="qb-category-tools">
-                <h3>Category Management Tools</h3>
+            <div class="qb-category-tools">
+                <!-- <h3>Category Management Tools</h3>
                 <div class="category-actions">
                     <div class="bulk-category-change">
                         <label for="filter-category">Filter by Category:</label>
@@ -573,7 +573,7 @@ function qb_manage_questions_page() {
                         <button type="button" id="select-all-questions" class="button">Select All</button>
                         <button type="button" id="deselect-all-questions" class="button">Deselect All</button>
                     </div>
-                </div>
+                </div> -->
                 
                 <form method="post" id="bulk-category-form" style="display:none;">
                     <?php wp_nonce_field('qb_manage_questions'); ?>
@@ -594,7 +594,7 @@ function qb_manage_questions_page() {
                     <input type="hidden" name="question_id" id="toggle-required-question-id">
                     <input type="hidden" name="required" id="toggle-required-status">
                 </form>
-            </div> -->
+            </div>
             <hr>
             <?php endif; ?>
 
