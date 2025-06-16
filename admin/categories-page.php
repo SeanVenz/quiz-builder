@@ -4,6 +4,24 @@ if (!defined('ABSPATH')) exit;
 // Include the Categories database class
 require_once plugin_dir_path(__FILE__) . '../includes/db/class-categories-db.php';
 
+/**
+ * Clear all category question count cache
+ */
+function qb_clear_category_question_count_cache() {
+    global $wpdb;
+    $categories_table = $wpdb->prefix . 'qb_categories';
+    
+    // Get all category IDs to clear their cache
+    $category_ids = $wpdb->get_col("SELECT id FROM {$categories_table}");
+    
+    if ($category_ids) {
+        foreach ($category_ids as $category_id) {
+            $cache_key = 'qb_category_question_count_' . $category_id;
+            wp_cache_delete($cache_key);
+        }
+    }
+}
+
 // Add action handlers for category management
 add_action('admin_post_qb_add_category', 'qb_handle_add_category');
 add_action('admin_post_qb_edit_category', 'qb_handle_edit_category');
@@ -36,12 +54,16 @@ function qb_handle_add_category() {    if (!current_user_can('manage_options')) 
         ), admin_url('admin.php')));
         exit;
     }
-    
-    $result = $categories_db->insert_category(array(
+      $result = $categories_db->insert_category(array(
         'name' => $name,
         'description' => $description,
         'color' => $color ?: '#3498db'
     ));
+    
+    // Clear cache if category was added successfully
+    if ($result) {
+        qb_clear_category_question_count_cache();
+    }
     
     $message = $result ? 'category_added' : 'category_error';
     
@@ -80,12 +102,16 @@ function qb_handle_edit_category() {    if (!current_user_can('manage_options'))
         ), admin_url('admin.php')));
         exit;
     }
-    
-    $result = $categories_db->update_category($category_id, array(
+      $result = $categories_db->update_category($category_id, array(
         'name' => $name,
         'description' => $description,
         'color' => $color ?: '#3498db'
     ));
+    
+    // Clear cache if category was updated successfully
+    if ($result !== false) {
+        qb_clear_category_question_count_cache();
+    }
     
     $message = $result !== false ? 'category_updated' : 'category_error';
     
@@ -104,8 +130,12 @@ function qb_handle_delete_category() {    if (!current_user_can('manage_options'
     
     $categories_db = new QB_Categories_DB();
     $category_id = isset($_POST['category_id']) ? intval($_POST['category_id']) : 0;
+      $result = $categories_db->delete_category($category_id);
     
-    $result = $categories_db->delete_category($category_id);
+    // Clear cache if category was deleted successfully
+    if (!is_wp_error($result) && $result !== false) {
+        qb_clear_category_question_count_cache();
+    }
     
     if (is_wp_error($result)) {
         $message = 'category_in_use';
@@ -213,15 +243,22 @@ function qb_categories_page() {
                                 <th>Actions</th>
                             </tr>
                         </thead>
-                        <tbody>
-                            <?php foreach ($categories as $category): ?>
+                        <tbody>                            <?php foreach ($categories as $category): ?>
                                 <?php
-                                // Get question count for this category
-                                global $wpdb;
-                                $question_count = $wpdb->get_var($wpdb->prepare(
-                                    "SELECT COUNT(*) FROM {$wpdb->prefix}qb_questions WHERE category_id = %d",
-                                    $category->id
-                                ));
+                                // Get question count for this category with caching
+                                $cache_key = 'qb_category_question_count_' . $category->id;
+                                $question_count = wp_cache_get($cache_key);
+                                
+                                if (false === $question_count) {
+                                    global $wpdb;
+                                    $question_count = $wpdb->get_var($wpdb->prepare(
+                                        "SELECT COUNT(*) FROM {$wpdb->prefix}qb_questions WHERE category_id = %d",
+                                        $category->id
+                                    ));
+                                    
+                                    // Cache the result for 1 hour (3600 seconds)
+                                    wp_cache_set($cache_key, $question_count, '', 3600);
+                                }
                                 ?>
                                 <tr data-category-id="<?php echo esc_attr($category->id); ?>">
                                     <td>

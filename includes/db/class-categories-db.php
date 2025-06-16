@@ -45,16 +45,18 @@ class QB_Categories_DB {
      * Get all categories
      */
     public function get_all_categories() {
-        // Use esc_sql() for table name since %i placeholder may not be supported in older versions
-        $sql = "SELECT * FROM " . esc_sql($this->table_name) . " ORDER BY name ASC";
-        return $this->wpdb->get_results($sql);
-    }    /**
+        return $this->wpdb->get_results(
+            "SELECT * FROM `{$this->table_name}` ORDER BY name ASC"
+        );
+    }/**
      * Get category by ID
      */
     public function get_category($id) {
-        $sql = "SELECT * FROM " . esc_sql($this->table_name) . " WHERE id = %d";
         return $this->wpdb->get_row(
-            $this->wpdb->prepare($sql, $id)
+            $this->wpdb->prepare(
+                "SELECT * FROM `{$this->table_name}` WHERE id = %d",
+                $id
+            )
         );
     }
 
@@ -101,10 +103,12 @@ class QB_Categories_DB {
      * Delete category
      */    public function delete_category($id) {
         // First, check if category is being used by any questions
-        $questions_table = esc_sql($this->wpdb->prefix . 'qb_questions');
-        $sql = "SELECT COUNT(*) FROM " . $questions_table . " WHERE category_id = %d";
+        $questions_table = $this->wpdb->prefix . 'qb_questions';
         $questions_using_category = $this->wpdb->get_var(
-            $this->wpdb->prepare($sql, $id)
+            $this->wpdb->prepare(
+                "SELECT COUNT(*) FROM `{$questions_table}` WHERE category_id = %d",
+                $id
+            )
         );
 
         if ($questions_using_category > 0) {
@@ -116,22 +120,24 @@ class QB_Categories_DB {
             array('id' => $id),
             array('%d')
         );
-    }
-
-    /**
+    }    /**
      * Check if category name exists (for uniqueness validation)
-     */    public function category_name_exists($name, $exclude_id = null) {
-        $table_name = esc_sql($this->table_name);
-        
+     */
+    public function category_name_exists($name, $exclude_id = null) {
         if ($exclude_id) {
-            $sql = "SELECT COUNT(*) FROM " . $table_name . " WHERE name = %s AND id != %d";
             return $this->wpdb->get_var(
-                $this->wpdb->prepare($sql, $name, $exclude_id)
+                $this->wpdb->prepare(
+                    "SELECT COUNT(*) FROM `{$this->table_name}` WHERE name = %s AND id != %d",
+                    $name,
+                    $exclude_id
+                )
             ) > 0;
         } else {
-            $sql = "SELECT COUNT(*) FROM " . $table_name . " WHERE name = %s";
             return $this->wpdb->get_var(
-                $this->wpdb->prepare($sql, $name)
+                $this->wpdb->prepare(
+                    "SELECT COUNT(*) FROM `{$this->table_name}` WHERE name = %s",
+                    $name
+                )
             ) > 0;
         }
     }
