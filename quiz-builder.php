@@ -69,6 +69,7 @@ function qb_activate_plugin() {
     // Force table recreation
     global $wpdb;
     $table_name = $wpdb->prefix . 'qb_quiz_settings';
+    // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange
     $wpdb->query("DROP TABLE IF EXISTS $table_name");
     
     // Create fresh table
@@ -111,19 +112,23 @@ function qb_display_quiz($atts) {
     $questions_table = $wpdb->prefix . 'qb_questions';
     $options_table = $wpdb->prefix . 'qb_options';
     $settings_table = $wpdb->prefix . 'qb_quiz_settings';
-
+    // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching 
     $quiz = $wpdb->get_row($wpdb->prepare("SELECT * FROM $quiz_table WHERE id = %d", $quiz_id));
     if (!$quiz) {
         return '<div class="error"><p>Quiz not found!</p></div>';
-    }    $questions = $wpdb->get_results($wpdb->prepare("SELECT * FROM $questions_table WHERE quiz_id = %d ORDER BY `order` ASC, id ASC", $quiz_id));
+    }    
+    // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching 
+    $questions = $wpdb->get_results($wpdb->prepare("SELECT * FROM $questions_table WHERE quiz_id = %d ORDER BY `order` ASC, id ASC", $quiz_id));
     if (!$questions) {
         return '<div class="error"><p>No questions available for this quiz.</p></div>';
     }
 
     // Debug: Log initial questions
+    // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching 
     error_log("Quiz " . $quiz_id . " - Initial questions order: " . implode(',', array_map(function($q) { return $q->id; }, $questions)));$options = $wpdb->get_results($wpdb->prepare("SELECT * FROM $options_table WHERE question_id IN (SELECT id FROM $questions_table WHERE quiz_id = %d)", $quiz_id));
 
     // Get quiz settings
+    // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching 
     $settings = $wpdb->get_row($wpdb->prepare("SELECT * FROM $settings_table WHERE quiz_id = %d", $quiz_id));
     if (!$settings) {
         $settings = (object) array(
@@ -333,7 +338,7 @@ function qb_handle_quiz_submission() {
     $attempts_table = $wpdb->prefix . 'qb_attempts';
 
     error_log('Processing quiz ID: ' . $quiz_id);
-
+    // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching 
     $quiz = $wpdb->get_row($wpdb->prepare("SELECT * FROM $quiz_table WHERE id = %d", $quiz_id));
     if (!$quiz) {
         error_log('Quiz not found with ID: ' . $quiz_id);
@@ -342,6 +347,7 @@ function qb_handle_quiz_submission() {
         }
         return;
     }    $score = 0;
+    // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching 
     $questions = $wpdb->get_results($wpdb->prepare("SELECT * FROM $questions_table WHERE quiz_id = %d", $quiz_id));
     $answers = array();
     
@@ -371,8 +377,10 @@ function qb_handle_quiz_submission() {
     }
 
     foreach ($questions as $question) {
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching 
         $selected_option_id = isset($_POST['question_' . $question->id]) ? intval($_POST['question_' . $question->id]) : 0;
         if ($selected_option_id) {
+            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching 
             $selected_option = $wpdb->get_row($wpdb->prepare("SELECT * FROM $options_table WHERE id = %d", $selected_option_id));
             if ($selected_option) {
                 $score += $selected_option->points;
@@ -386,6 +394,7 @@ function qb_handle_quiz_submission() {
     }
 
     // Get total possible points
+    // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching 
     $total_possible_points = $wpdb->get_var($wpdb->prepare(
         "SELECT SUM(max_points) FROM (
             SELECT MAX(points) as max_points 
@@ -402,12 +411,14 @@ function qb_handle_quiz_submission() {
     error_log('Generated random ID: ' . $random_id);
 
     // Get user ID, set to NULL if not logged in
+    // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery
     $user_id = get_current_user_id();
     if (!$user_id) {
         $user_id = null;
     }
 
     // Store the attempt
+    // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery
     $insert_result = $wpdb->insert($attempts_table, array(
         'random_id' => $random_id,
         'quiz_id' => $quiz_id,
@@ -483,10 +494,12 @@ function qb_display_quiz_results() {
     }
 
     // Get the attempt using the random ID
+    // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching 
     $attempt = $wpdb->get_row($wpdb->prepare("SELECT * FROM $attempts_table WHERE random_id = %s", $random_id));
     if (!$attempt) {
         return '<div class="error"><p>Quiz results not found.</p></div>';
     }    // Get the quiz
+    // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching 
     $quiz = $wpdb->get_row($wpdb->prepare("SELECT * FROM $quizzes_table WHERE id = %d", $attempt->quiz_id));
     if (!$quiz) {
         return '<div class="error"><p>Quiz not found.</p></div>';
@@ -551,14 +564,16 @@ function qb_get_attempt_details() {
     $options_table = $wpdb->prefix . 'qb_options';
     $quizzes_table = $wpdb->prefix . 'qb_quizzes';
     $users_table = $wpdb->users;
-
+    // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching 
     $attempt = $wpdb->get_row($wpdb->prepare("SELECT * FROM $attempts_table WHERE random_id = %s", $attempt_id));
     if (!$attempt) {
         wp_send_json_error('Attempt not found');
     }
 
     // Get quiz and user details
+    // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching 
     $quiz = $wpdb->get_row($wpdb->prepare("SELECT * FROM $quizzes_table WHERE id = %d", $attempt->quiz_id));
+    // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching 
     $user = $attempt->user_id ? $wpdb->get_row($wpdb->prepare("SELECT display_name FROM $users_table WHERE ID = %d", $attempt->user_id)) : null;
 
     $answers = json_decode($attempt->answers, true);
@@ -601,7 +616,7 @@ function qb_export_attempts_csv() {
     
     // CSV headers
     fputcsv($output, array('Attempt ID', 'Quiz Title', 'User', 'Score', 'Total Points', 'Percentage', 'Date'));
-    
+    // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching     
     $attempts = $wpdb->get_results("
         SELECT a.*, q.title as quiz_title, u.display_name as user_name 
         FROM $attempts_table a
@@ -828,7 +843,7 @@ function qb_onboarding_create_quiz() {
 
     global $wpdb;
     $table_name = $wpdb->prefix . 'qb_quizzes';
-
+// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery
     $result = $wpdb->insert($table_name, [
         'title' => $title,
         'description' => $description,
@@ -855,6 +870,7 @@ function qb_onboarding_add_question() {
     }
 
     global $wpdb;
+    // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery
     $table_name = $wpdb->prefix . 'qb_questions';    $result = $wpdb->insert($table_name, [
         'quiz_id' => $quiz_id,
         'question' => $question_text,
@@ -892,7 +908,7 @@ function qb_onboarding_add_options() {
         if (empty($option_text)) {
             continue;
         }
-
+// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery
         $wpdb->insert($table_name, [
             'question_id' => $question_id,
             'option_text' => $option_text,
@@ -928,7 +944,7 @@ function qb_onboarding_add_questions() {
         if (empty($question_text)) {
             continue;
         }
-
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery
         $result = $wpdb->insert($table_name, [
             'quiz_id' => $quiz_id,
             'question' => $question_text,
@@ -979,7 +995,7 @@ function qb_onboarding_add_all_options() {
             if (empty($option_text)) {
                 continue;
             }
-
+            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery
             $result = $wpdb->insert($table_name, [
                 'question_id' => $question_id,
                 'option_text' => $option_text,
@@ -1016,12 +1032,14 @@ function qb_export_pdf() {
     $attempts_table = $wpdb->prefix . 'qb_attempts';
     
     // Get attempt details
+    // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching 
     $attempt = $wpdb->get_row($wpdb->prepare("SELECT * FROM $attempts_table WHERE id = %d", $attempt_id));
     if (!$attempt) {
         wp_die('Quiz attempt not found');
     }
     
     // Get quiz details
+    // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching 
     $quiz = $wpdb->get_row($wpdb->prepare("SELECT * FROM {$wpdb->prefix}qb_quizzes WHERE id = %d", $attempt->quiz_id));
     if (!$quiz) {
         wp_die('Quiz not found');
