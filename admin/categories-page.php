@@ -11,7 +11,8 @@ function qb_clear_category_question_count_cache() {
     global $wpdb;
     $categories_table = $wpdb->prefix . 'qb_categories';
     
-    // Get all category IDs to clear their cache
+    // PCP: Direct DB query is used here to fetch all category IDs for cache clearing only. Caching is not needed.
+    // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
     $category_ids = $wpdb->get_col("SELECT id FROM {$categories_table}");
     
     if ($category_ids) {
@@ -251,6 +252,8 @@ function qb_categories_page() {
                                 
                                 if (false === $question_count) {
                                     global $wpdb;
+                                    // PCP: Direct DB query is used here to count questions for this category. Result is cached for performance.
+                                    // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery
                                     $question_count = $wpdb->get_var($wpdb->prepare(
                                         "SELECT COUNT(*) FROM {$wpdb->prefix}qb_questions WHERE category_id = %d",
                                         $category->id

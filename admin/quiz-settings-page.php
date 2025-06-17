@@ -46,6 +46,8 @@ function qb_quiz_settings_page() {
     }
 
     // Get all quizzes
+    // PCP: Direct DB query is used here to fetch all quizzes for the settings page (admin only, not performance-critical).
+    // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
     $quizzes = $wpdb->get_results("SELECT * FROM $quizzes_table ORDER BY title ASC");
     ?>
     <div class="wrap">
@@ -229,4 +231,4 @@ function qb_get_quiz_settings_ajax() {
         ));
     }
 }
-add_action('wp_ajax_qb_get_quiz_settings', 'qb_get_quiz_settings_ajax'); 
+add_action('wp_ajax_qb_get_quiz_settings', 'qb_get_quiz_settings_ajax');

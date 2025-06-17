@@ -18,6 +18,8 @@ function handle_add_quiz_submission() {
     $description = sanitize_textarea_field($_POST['quiz_description']);
     
     if (!empty($title)) {
+        // PCP: Direct DB insert for quiz creation (admin action, no caching needed).
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery
         $result = $wpdb->insert($wpdb->prefix . 'qb_quizzes', [
             'title' => $title,
             'description' => $description,
@@ -69,6 +71,8 @@ function handle_edit_quiz_submission() {
     $description = sanitize_textarea_field($_POST['quiz_description']);
     
     if (!empty($title)) {
+        // PCP: Direct DB update for quiz editing (admin action, no caching needed).
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery
         $result = $wpdb->update(
             $wpdb->prefix . 'qb_quizzes',
             [
@@ -104,16 +108,24 @@ function handle_delete_quiz_submission() {
     $quiz_id = intval($_POST['quiz_id']);
     
     // Delete related records first
+    // PCP: Direct DB delete for related options (admin action, no caching needed).
+    // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
     $wpdb->delete($wpdb->prefix . 'qb_options', ['question_id' => 
         $wpdb->get_col($wpdb->prepare(
             "SELECT id FROM {$wpdb->prefix}qb_questions WHERE quiz_id = %d",
             $quiz_id
         ))
     ]);
+    // PCP: Direct DB delete for questions (admin action, no caching needed).
+    // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
     $wpdb->delete($wpdb->prefix . 'qb_questions', ['quiz_id' => $quiz_id]);
+    // PCP: Direct DB delete for attempts (admin action, no caching needed).
+    // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
     $wpdb->delete($wpdb->prefix . 'qb_attempts', ['quiz_id' => $quiz_id]);
     
     // Delete the quiz
+    // PCP: Direct DB delete for quiz (admin action, no caching needed).
+    // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
     $result = $wpdb->delete($wpdb->prefix . 'qb_quizzes', ['id' => $quiz_id]);
     
     wp_safe_redirect(add_query_arg(
@@ -154,6 +166,8 @@ function qb_manage_questions_page() {
     // If no quiz ID is provided, show the quiz list
     if (!$quiz_id) {
         // Get all quizzes
+        // PCP: Direct DB select for admin quiz list (not performance-critical, no caching needed).
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
         $quizzes = $wpdb->get_results("SELECT * FROM {$wpdb->prefix}qb_quizzes ORDER BY id DESC");
         ?>
         <div class="wrap">
@@ -338,6 +352,8 @@ function qb_manage_questions_page() {
                     // Add required status to update data
                     $update_data['required'] = $required;
                     
+                    // PCP: Direct DB update for question editing (admin action, no caching needed).
+                    // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery
                     $wpdb->update($questions_table, 
                         $update_data,
                         ['id' => $question_id]
