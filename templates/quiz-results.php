@@ -18,6 +18,8 @@ function qb_calculate_category_scores($quiz_id, $user_answers) {
     $options_table = $wpdb->prefix . 'qb_options';
     
     // Get all questions with their categories
+    // PCP: Direct DB select for questions and categories (reporting context, no caching needed).
+    // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
     $questions = $wpdb->get_results($wpdb->prepare(
         "SELECT q.id, q.question, q.category_id, c.name as category_name, c.color as category_color
          FROM $questions_table q 
@@ -47,6 +49,8 @@ function qb_calculate_category_scores($quiz_id, $user_answers) {
         }
         
         // Get the maximum points for this question
+        // PCP: Direct DB select for max points (reporting context, no caching needed).
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
         $max_points = $wpdb->get_var($wpdb->prepare(
             "SELECT MAX(points) FROM $options_table WHERE question_id = %d",
             $question->id
@@ -58,6 +62,8 @@ function qb_calculate_category_scores($quiz_id, $user_answers) {
         $question_score = 0;
         if (isset($user_answers[$question->id])) {
             $selected_option_id = $user_answers[$question->id];
+            // PCP: Direct DB select for option points (reporting context, no caching needed).
+            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
             $question_score = $wpdb->get_var($wpdb->prepare(
                 "SELECT points FROM $options_table WHERE id = %d",
                 $selected_option_id

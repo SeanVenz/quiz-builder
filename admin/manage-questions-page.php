@@ -72,7 +72,7 @@ function handle_edit_quiz_submission() {
     
     if (!empty($title)) {
         // PCP: Direct DB update for quiz editing (admin action, no caching needed).
-        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.NoCaching
         $result = $wpdb->update(
             $wpdb->prefix . 'qb_quizzes',
             [
@@ -295,7 +295,9 @@ function qb_manage_questions_page() {
         <?php
         return;
     }
-
+    
+    // PCP: Direct DB insert for quiz creation (admin action, no caching needed).
+    // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery
     $quiz = $wpdb->get_row($wpdb->prepare("SELECT * FROM {$wpdb->prefix}qb_quizzes WHERE id = %d", $quiz_id));
 
     if (!$quiz) {
@@ -317,6 +319,8 @@ function qb_manage_questions_page() {
                 
                 if (!empty($question_text)) {
                     // Get the next order number
+                    // PCP: Direct DB select for next order (admin action, no caching needed).
+                    // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery
                     $next_order = $wpdb->get_var($wpdb->prepare(
                         "SELECT MAX(`order`) + 1 FROM $questions_table WHERE quiz_id = %d",
                         $quiz_id

@@ -22,7 +22,11 @@
         <thead><tr><th>Question</th><th>Answer</th><th>Points</th></tr></thead>
         <tbody>
         <?php foreach ($answers as $answer):
+            // PCP: Direct DB select for question (reporting context, no caching needed).
+            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
             $question = $wpdb->get_row($wpdb->prepare("SELECT * FROM {$wpdb->prefix}qb_questions WHERE id = %d", $answer['question_id']));
+            // PCP: Direct DB select for option (reporting context, no caching needed).
+            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
             $option = $wpdb->get_row($wpdb->prepare("SELECT * FROM {$wpdb->prefix}qb_options WHERE id = %d", $answer['option_id']));
             if ($question && $option): ?>
                 <tr>
