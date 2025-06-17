@@ -47,9 +47,9 @@ class QB_Quiz_Settings_DB {
         ));
 
         // If column doesn't exist, add it
-        // PCP: Direct DB schema change (ALTER TABLE) for migration (plugin setup, safe in this context).
-        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange
         if (empty($show_answers_exists)) {
+            // PCP: Direct DB schema change (ALTER TABLE) for migration (plugin setup, safe in this context).
+            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange
             $wpdb->query("ALTER TABLE {$this->table_name} 
                 ADD COLUMN show_user_answers tinyint(1) NOT NULL DEFAULT 0 
                 AFTER questions_per_page");
@@ -69,15 +69,17 @@ class QB_Quiz_Settings_DB {
         ));
 
         // If column doesn't exist, add it
-        // PCP: Direct DB schema change (ALTER TABLE) for migration (plugin setup, safe in this context).
-        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange
         if (empty($pdf_export_exists)) {
+            // PCP: Direct DB schema change (ALTER TABLE) for migration (plugin setup, safe in this context).
+            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange
             $wpdb->query("ALTER TABLE {$this->table_name} 
                 ADD COLUMN allow_pdf_export tinyint(1) NOT NULL DEFAULT 0 
                 AFTER show_user_answers");
         }
 
         // Verify the randomize_questions column exists
+        // PCP: Direct DB select for schema check (schema management, no caching needed).
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
         $randomize_questions_exists = $wpdb->get_results($wpdb->prepare(
             "SELECT COLUMN_NAME 
             FROM INFORMATION_SCHEMA.COLUMNS 
@@ -90,12 +92,16 @@ class QB_Quiz_Settings_DB {
 
         // If column doesn't exist, add it
         if (empty($randomize_questions_exists)) {
+            // PCP: Direct DB schema change (ALTER TABLE) for migration (plugin setup, safe in this context).
+            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange
             $wpdb->query("ALTER TABLE {$this->table_name} 
                 ADD COLUMN randomize_questions tinyint(1) NOT NULL DEFAULT 0 
                 AFTER allow_pdf_export");
         }
 
         // Verify the randomize_answers column exists
+        // PCP: Direct DB select for schema check (schema management, no caching needed).
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
         $randomize_answers_exists = $wpdb->get_results($wpdb->prepare(
             "SELECT COLUMN_NAME 
             FROM INFORMATION_SCHEMA.COLUMNS 
@@ -106,12 +112,16 @@ class QB_Quiz_Settings_DB {
             $this->table_name
         ));        // If column doesn't exist, add it
         if (empty($randomize_answers_exists)) {
+            // PCP: Direct DB schema change (ALTER TABLE) for migration (plugin setup, safe in this context).
+            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange
             $wpdb->query("ALTER TABLE {$this->table_name} 
                 ADD COLUMN randomize_answers tinyint(1) NOT NULL DEFAULT 0 
                 AFTER randomize_questions");
         }
 
         // Verify the show_category_scores column exists
+        // PCP: Direct DB select for schema check (schema management, no caching needed).
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
         $category_scores_exists = $wpdb->get_results($wpdb->prepare(
             "SELECT COLUMN_NAME 
             FROM INFORMATION_SCHEMA.COLUMNS 
@@ -124,6 +134,8 @@ class QB_Quiz_Settings_DB {
 
         // If column doesn't exist, add it
         if (empty($category_scores_exists)) {
+            // PCP: Direct DB schema change (ALTER TABLE) for migration (plugin setup, safe in this context).
+            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange
             $wpdb->query("ALTER TABLE {$this->table_name} 
                 ADD COLUMN show_category_scores tinyint(1) NOT NULL DEFAULT 0 
                 AFTER randomize_answers");
