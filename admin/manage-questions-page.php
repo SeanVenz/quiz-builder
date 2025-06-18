@@ -14,8 +14,8 @@ function handle_add_quiz_submission() {
     check_admin_referer('qb_add_quiz');
     
     global $wpdb;
-    $title = sanitize_text_field($_POST['quiz_title']);
-    $description = sanitize_textarea_field($_POST['quiz_description']);
+    $title = isset($_POST['quiz_title']) ? sanitize_text_field(wp_unslash($_POST['quiz_title'])) : '';
+    $description = isset($_POST['quiz_description']) ? sanitize_textarea_field(wp_unslash($_POST['quiz_description'])) : '';
     
     if (!empty($title)) {
         // PCP: Direct DB insert for quiz creation (admin action, no caching needed).
@@ -66,9 +66,9 @@ function handle_edit_quiz_submission() {
     check_admin_referer('qb_edit_quiz');
     
     global $wpdb;
-    $quiz_id = intval($_POST['quiz_id']);
-    $title = sanitize_text_field($_POST['quiz_title']);
-    $description = sanitize_textarea_field($_POST['quiz_description']);
+    $quiz_id = isset($_POST['quiz_id']) ? intval($_POST['quiz_id']) : 0;
+    $title = isset($_POST['quiz_title']) ? sanitize_text_field(wp_unslash($_POST['quiz_title'])) : '';
+    $description = isset($_POST['quiz_description']) ? sanitize_textarea_field(wp_unslash($_POST['quiz_description'])) : '';
     
     if (!empty($title)) {
         // PCP: Direct DB update for quiz editing (admin action, no caching needed).
@@ -105,7 +105,7 @@ function handle_delete_quiz_submission() {
     check_admin_referer('qb_delete_quiz');
     
     global $wpdb;
-    $quiz_id = intval($_POST['quiz_id']);
+    $quiz_id = isset($_POST['quiz_id']) ? intval($_POST['quiz_id']) : 0;
     
     // Delete related records first
     // PCP: Direct DB delete for related options (admin action, no caching needed).
@@ -313,18 +313,15 @@ function qb_manage_questions_page() {
         check_admin_referer('qb_manage_questions');
         
         switch ($_POST['action']) {            case 'add_question':
-                $question_text = sanitize_text_field($_POST['question_text']);
+                $question_text = isset($_POST['question_text']) ? sanitize_text_field(wp_unslash($_POST['question_text'])) : '';
                 $category_id = !empty($_POST['category_id']) ? intval($_POST['category_id']) : null;
                 $required = isset($_POST['question_required']) ? 1 : 0;
                 
                 if (!empty($question_text)) {
                     // Get the next order number
                     // PCP: Direct DB select for next order (admin action, no caching needed).
-                    // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-                    $next_order = $wpdb->get_var($wpdb->prepare(
-                        "SELECT MAX(`order`) + 1 FROM $questions_table WHERE quiz_id = %d",
-                        $quiz_id
-                    )) ?: 1;
+                    // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Table name is set internally and safe in this context.
+                    $next_order = $wpdb->get_var($wpdb->prepare("SELECT MAX(`order`) + 1 FROM $questions_table WHERE quiz_id = %d", $quiz_id)) ?: 1;
 
                     $insert_data = [
                         'quiz_id' => $quiz_id,
@@ -342,8 +339,8 @@ function qb_manage_questions_page() {
                     echo '<div class="updated notice"><p>Question added!</p></div>';
                 }
                 break;            case 'edit_question':
-                $question_id = intval($_POST['question_id']);
-                $question_text = sanitize_text_field($_POST['question_text']);
+                $question_id = isset($_POST['question_id']) ? intval($_POST['question_id']) : 0;
+                $question_text = isset($_POST['question_text']) ? sanitize_text_field(wp_unslash($_POST['question_text'])) : '';
                 $category_id = !empty($_POST['category_id']) ? intval($_POST['category_id']) : null;
                 $required = isset($_POST['question_required']) ? 1 : 0;
                 
@@ -367,14 +364,11 @@ function qb_manage_questions_page() {
                 break;
 
             case 'delete_question':
-                $question_id = intval($_POST['question_id']);
+                $question_id = isset($_POST['question_id']) ? intval($_POST['question_id']) : 0;
                 // Get the order of the question being deleted
                 // PCP: Direct DB select for order of deleted question (admin action, no caching needed).
-                // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-                $deleted_order = $wpdb->get_var($wpdb->prepare(
-                    "SELECT `order` FROM $questions_table WHERE id = %d",
-                    $question_id
-                ));
+                // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Table name is set internally and safe in this context.
+                $deleted_order = $wpdb->get_var($wpdb->prepare("SELECT `order` FROM $questions_table WHERE id = %d", $question_id));
                 
                 // Delete the question
                 // PCP: Direct DB delete for question (admin action, no caching needed).
@@ -382,20 +376,16 @@ function qb_manage_questions_page() {
                 $wpdb->delete($questions_table, ['id' => $question_id]);
                 
                 // Update orders of remaining questions
-                // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-                $wpdb->query($wpdb->prepare(
-                    "UPDATE $questions_table SET `order` = `order` - 1 
-                     WHERE quiz_id = %d AND `order` > %d",
-                    $quiz_id, $deleted_order
-                ));
+                // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Table name is set internally and safe in this context.
+                $wpdb->query($wpdb->prepare( "UPDATE $questions_table SET `order` = `order` - 1  WHERE quiz_id = %d AND `order` > %d", $quiz_id, $deleted_order));
                 
                 echo '<div class="updated notice"><p>Question deleted!</p></div>';
                 break;
 
             case 'add_option':
-                $question_id = intval($_POST['question_id']);
-                $option_text = sanitize_text_field($_POST['option_text']);
-                $points = intval($_POST['points']);
+                $question_id = isset($_POST['question_id']) ? intval($_POST['question_id']) : 0;
+                $option_text = isset($_POST['option_text']) ? sanitize_text_field(wp_unslash($_POST['option_text'])) : '';
+                $points = isset($_POST['points']) ? intval($_POST['points']) : 0;
                 // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery
                 if (!empty($option_text)) {
                     // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery
@@ -409,10 +399,9 @@ function qb_manage_questions_page() {
                 break;
 
             case 'edit_option':
-                $option_id = intval($_POST['option_id']);
-                $option_text = sanitize_text_field($_POST['option_text']);
-                // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-                $points = intval($_POST['points']);
+                $option_id = isset($_POST['option_id']) ? intval($_POST['option_id']) : 0;
+                $option_text = isset($_POST['option_text']) ? sanitize_text_field(wp_unslash($_POST['option_text'])) : '';
+                $points = isset($_POST['points']) ? intval($_POST['points']) : 0;
                 // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
                 if (!empty($option_text)) {
                     // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
@@ -426,15 +415,17 @@ function qb_manage_questions_page() {
             // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
             case 'delete_option':
                 // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-                $option_id = intval($_POST['option_id']);
+                $option_id = isset($_POST['option_id']) ? intval($_POST['option_id']) : 0;
                 // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
                 $wpdb->delete($options_table, ['id' => $option_id]);
                 echo '<div class="updated notice"><p>Option deleted!</p></div>';
                 break;
             // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
             case 'save_order':
-                // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-                $order = json_decode(stripslashes($_POST['order']));
+                // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
+                $order = isset($_POST['order']) ? json_decode(stripslashes(wp_unslash($_POST['order']))) : array();
+                // Sanitize order IDs
+                $order = is_array($order) ? array_map('intval', $order) : array();
                 // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
                 foreach ($order as $index => $question_id) {
                     // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
@@ -446,9 +437,16 @@ function qb_manage_questions_page() {
                 echo '<div class="updated notice"><p>Question order saved!</p></div>';
                 break;            case 'save_options':
                 // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-                $question_id = intval($_POST['question_id']);
-                // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-                $options = json_decode(stripslashes($_POST['options']), true);
+                $question_id = isset($_POST['question_id']) ? intval($_POST['question_id']) : 0;
+                // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
+                $options = isset($_POST['options']) ? json_decode(stripslashes(wp_unslash($_POST['options'])), true) : array();
+                // Sanitize options array
+                $options = is_array($options) ? array_map(function($opt) {
+                    return [
+                        'text' => isset($opt['text']) ? sanitize_text_field($opt['text']) : '',
+                        'points' => isset($opt['points']) ? intval($opt['points']) : 0
+                    ];
+                }, $options) : array();
                 // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching                
                 if (is_array($options)) {
                     // Delete existing options
@@ -468,9 +466,10 @@ function qb_manage_questions_page() {
                     echo '<div class="updated notice"><p>Options saved!</p></div>';
                 }
                 break;            case 'bulk_category_update':
-                $question_ids = array_map('intval', explode(',', $_POST['question_ids']));
+                //  phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
+                $question_ids = isset($_POST['question_ids']) ? array_map('intval', explode(',', wp_unslash($_POST['question_ids']))) : array();
                 $category_id = !empty($_POST['bulk_category_id']) ? intval($_POST['bulk_category_id']) : null;
-                $action_type = sanitize_text_field($_POST['bulk_action_type']);
+                $action_type = isset($_POST['bulk_action_type']) ? sanitize_text_field(wp_unslash($_POST['bulk_action_type'])) : '';
                 
                 if (!empty($question_ids)) {
                     foreach ($question_ids as $question_id) {
@@ -493,7 +492,7 @@ function qb_manage_questions_page() {
                     echo '<div class="updated notice"><p>Categories updated for ' . count($question_ids) . ' questions!</p></div>';
                 }
                 break;            case 'remove_single_category':
-                $question_id = intval($_POST['question_id']);
+                $question_id = isset($_POST['question_id']) ? intval($_POST['question_id']) : 0;
                 // PCP: Direct DB update for single category removal (admin action, no caching needed).
                 // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
                 $wpdb->update($questions_table, 
@@ -504,7 +503,7 @@ function qb_manage_questions_page() {
                 break;
 
             case 'toggle_required':
-                $question_id = intval($_POST['question_id']);
+                $question_id = isset($_POST['question_id']) ? intval($_POST['question_id']) : 0;
                 $required = isset($_POST['required']) && $_POST['required'] === 'true' ? 1 : 0;
                 
                 // PCP: Direct DB update for toggling required (admin action, no caching needed).
@@ -519,15 +518,8 @@ function qb_manage_questions_page() {
         }
     }    // Get questions ordered by the order column with category information
     // PCP: Direct DB select for getting questions with category info (admin/reporting context, no caching needed).
-    // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-    $questions = $wpdb->get_results($wpdb->prepare(
-        "SELECT q.*, c.name as category_name, c.color as category_color
-         FROM $questions_table q 
-         LEFT JOIN {$wpdb->prefix}qb_categories c ON q.category_id = c.id 
-         WHERE q.quiz_id = %d 
-         ORDER BY q.`order` ASC",
-        $quiz_id
-    ));
+    // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+    $questions = $wpdb->get_results($wpdb->prepare("SELECT q.*, c.name as category_name, c.color as category_color FROM $questions_table q  LEFT JOIN {$wpdb->prefix}qb_categories c ON q.category_id = c.id  WHERE q.quiz_id = %d  ORDER BY q.`order` ASC", $quiz_id));
     ?>
     <div class="wrap">
         <h1>Manage Questions for: <?php echo esc_html($quiz->title); ?></h1>
@@ -651,12 +643,8 @@ function qb_manage_questions_page() {
                 <!-- phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching                 -->
                 <?php if ($questions): ?>
                     <?php foreach ($questions as $question): 
-                        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching                    
-                        $options = $wpdb->get_results($wpdb->prepare(
-                            "SELECT * FROM $options_table WHERE question_id = %d ORDER BY id ASC", 
-                            $question->id
-                        ));
-                    ?>                        <div class="accordion" data-question-id="<?php echo esc_attr($question->id); ?>" data-category-id="<?php echo esc_attr($question->category_id ?: ''); ?>">
+                        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared                    
+                        $options = $wpdb->get_results($wpdb->prepare( "SELECT * FROM $options_table WHERE question_id = %d ORDER BY id ASC",  $question->id ));  ?>                        <div class="accordion" data-question-id="<?php echo esc_attr($question->id); ?>" data-category-id="<?php echo esc_attr($question->category_id ?: ''); ?>">
                             <div class="accordion-header">
                                 <input type="checkbox" class="question-checkbox" value="<?php echo esc_attr($question->id); ?>" style="margin-right: 10px;">
                                 <span class="handle">⋮</span>                                <span class="question-text">
