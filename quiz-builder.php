@@ -69,7 +69,7 @@ function qb_activate_plugin() {
     // Force table recreation
     global $wpdb;
     $table_name = $wpdb->prefix . 'qb_quiz_settings';
-    // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange
+    // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange, WordPress.DB.PreparedSQL.InterpolatedNotPrepared 
     $wpdb->query("DROP TABLE IF EXISTS $table_name");
     
     // Create fresh table
@@ -112,23 +112,23 @@ function qb_display_quiz($atts) {
     $questions_table = $wpdb->prefix . 'qb_questions';
     $options_table = $wpdb->prefix . 'qb_options';
     $settings_table = $wpdb->prefix . 'qb_quiz_settings';
-    // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching 
+    // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared 
     $quiz = $wpdb->get_row($wpdb->prepare("SELECT * FROM $quiz_table WHERE id = %d", $quiz_id));
     if (!$quiz) {
         return '<div class="error"><p>Quiz not found!</p></div>';
     }    
-    // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching 
+    // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
     $questions = $wpdb->get_results($wpdb->prepare("SELECT * FROM $questions_table WHERE quiz_id = %d ORDER BY `order` ASC, id ASC", $quiz_id));
     if (!$questions) {
         return '<div class="error"><p>No questions available for this quiz.</p></div>';
     }
 
     // Debug: Log initial questions
-    // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching 
+    // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
     $options = $wpdb->get_results($wpdb->prepare("SELECT * FROM $options_table WHERE question_id IN (SELECT id FROM $questions_table WHERE quiz_id = %d)", $quiz_id));
 
     // Get quiz settings
-    // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching 
+    // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
     $settings = $wpdb->get_row($wpdb->prepare("SELECT * FROM $settings_table WHERE quiz_id = %d", $quiz_id));
     if (!$settings) {
         $settings = (object) array(
@@ -165,13 +165,14 @@ function qb_display_quiz($atts) {
     $is_fresh_start = false;
     
     // Check if this is a fresh start by looking at various indicators
+    // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- This logic is for quiz session reset and does not process sensitive user input.
     if (!isset($_GET['quiz_page'])) {
         // No quiz_page parameter means this could be a fresh start
         // For guest users, also check if they have existing session data
         if (get_current_user_id()) {
             // Logged-in user: check referrer
-            if (!isset($_SERVER['HTTP_REFERER']) || 
-                strpos($_SERVER['HTTP_REFERER'], 'quiz_page=') === false) {
+            $referer = isset($_SERVER['HTTP_REFERER']) ? sanitize_text_field(wp_unslash($_SERVER['HTTP_REFERER'])) : '';
+            if (empty($referer) || strpos($referer, 'quiz_page=') === false) {
                 $is_fresh_start = true;
             }
         } else {
@@ -182,15 +183,15 @@ function qb_display_quiz($atts) {
                 $is_fresh_start = true;
             } else {
                 // Has existing data, check referrer to see if they're coming from outside the quiz
-                if (!isset($_SERVER['HTTP_REFERER']) || 
-                    strpos($_SERVER['HTTP_REFERER'], 'quiz_page=') === false) {
+                $referer = isset($_SERVER['HTTP_REFERER']) ? sanitize_text_field(wp_unslash($_SERVER['HTTP_REFERER'])) : '';
+                if (empty($referer) || strpos($referer, 'quiz_page=') === false) {
                     $is_fresh_start = true;
                 }
             }
         }
     }
     
-    // Also check for a specific "reset" parameter
+    // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- This logic is for quiz session reset and does not process sensitive user input.
     if (isset($_GET['reset_quiz'])) {
         $is_fresh_start = true;
     }
@@ -201,7 +202,9 @@ function qb_display_quiz($atts) {
         delete_transient($options_transient_key);
           // Also clear the quiz session for guest users
         if (!get_current_user_id()) {
-            $browser_fingerprint = md5($_SERVER['REMOTE_ADDR'] . $_SERVER['HTTP_USER_AGENT']);
+            $remote_addr = isset($_SERVER['REMOTE_ADDR']) ? sanitize_text_field(wp_unslash($_SERVER['REMOTE_ADDR'])) : '';
+            $user_agent = isset($_SERVER['HTTP_USER_AGENT']) ? sanitize_text_field(wp_unslash($_SERVER['HTTP_USER_AGENT'])) : '';
+            $browser_fingerprint = md5($remote_addr . $user_agent);
             $quiz_session_option = 'qb_quiz_session_' . $quiz_id . '_' . $browser_fingerprint;
             delete_option($quiz_session_option);
         }
@@ -290,7 +293,9 @@ function qb_generate_random_id() {
 }
 
 // Register the action for both logged-in and non-logged-in users
+// phpcs:ignore WordPress.Security.NonceVerification.Missing -- Nonce is verified in qb_handle_quiz_submission for POST requests.
 add_action('template_redirect', function() {
+    // phpcs:ignore WordPress.Security.NonceVerification.Missing -- Nonce is verified in qb_handle_quiz_submission for POST requests.
     if (isset($_POST['action']) && $_POST['action'] === 'qb_handle_quiz_submission') {
         qb_handle_quiz_submission();
     }
@@ -300,7 +305,8 @@ function qb_handle_quiz_submission() {
     // Debug logging
 
     // Verify nonce
-    if (!isset($_POST['qb_quiz_nonce']) || !wp_verify_nonce($_POST['qb_quiz_nonce'], 'qb_quiz_submission')) {
+    $nonce = isset($_POST['qb_quiz_nonce']) ? sanitize_text_field(wp_unslash($_POST['qb_quiz_nonce'])) : '';
+    if (empty($nonce) || !wp_verify_nonce($nonce, 'qb_quiz_submission')) {
         if (wp_doing_ajax()) {
             wp_send_json_error('Invalid nonce');
         }
@@ -321,7 +327,7 @@ function qb_handle_quiz_submission() {
     $options_table = $wpdb->prefix . 'qb_options';
     $attempts_table = $wpdb->prefix . 'qb_attempts';
 
-    // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching 
+    // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
     $quiz = $wpdb->get_row($wpdb->prepare("SELECT * FROM $quiz_table WHERE id = %d", $quiz_id));
     if (!$quiz) {
         if (wp_doing_ajax()) {
@@ -329,7 +335,7 @@ function qb_handle_quiz_submission() {
         }
         return;
     }    $score = 0;
-    // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching 
+    // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
     $questions = $wpdb->get_results($wpdb->prepare("SELECT * FROM $questions_table WHERE quiz_id = %d", $quiz_id));
     $answers = array();
     
@@ -361,7 +367,7 @@ function qb_handle_quiz_submission() {
         // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching 
         $selected_option_id = isset($_POST['question_' . $question->id]) ? intval($_POST['question_' . $question->id]) : 0;
         if ($selected_option_id) {
-            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching 
+            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
             $selected_option = $wpdb->get_row($wpdb->prepare("SELECT * FROM $options_table WHERE id = %d", $selected_option_id));
             if ($selected_option) {
                 $score += $selected_option->points;
@@ -375,17 +381,8 @@ function qb_handle_quiz_submission() {
     }
 
     // Get total possible points
-    // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching 
-    $total_possible_points = $wpdb->get_var($wpdb->prepare(
-        "SELECT SUM(max_points) FROM (
-            SELECT MAX(points) as max_points 
-            FROM $options_table o 
-            JOIN $questions_table q ON o.question_id = q.id 
-            WHERE q.quiz_id = %d 
-            GROUP BY q.id
-        ) as question_max_points",
-        $quiz_id
-    ));
+    // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+    $total_possible_points = $wpdb->get_var($wpdb->prepare("SELECT SUM(max_points) FROM ( SELECT MAX(points) as max_points  FROM $options_table o  JOIN $questions_table q ON o.question_id = q.id  WHERE q.quiz_id = %d  GROUP BY q.id ) as question_max_points", $quiz_id ));
 
     // Generate random ID
     $random_id = qb_generate_random_id();
@@ -470,12 +467,12 @@ function qb_display_quiz_results() {
     }
 
     // Get the attempt using the random ID
-    // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching 
+    // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared 
     $attempt = $wpdb->get_row($wpdb->prepare("SELECT * FROM $attempts_table WHERE random_id = %s", $random_id));
     if (!$attempt) {
         return '<div class="error"><p>Quiz results not found.</p></div>';
     }    // Get the quiz
-    // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching 
+    // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
     $quiz = $wpdb->get_row($wpdb->prepare("SELECT * FROM $quizzes_table WHERE id = %d", $attempt->quiz_id));
     if (!$quiz) {
         return '<div class="error"><p>Quiz not found.</p></div>';
@@ -534,22 +531,22 @@ function qb_get_attempt_details() {
     check_ajax_referer('qb_attempt_details', 'nonce');
 
     global $wpdb;
-    $attempt_id = sanitize_text_field($_POST['attempt_id']);
+    $attempt_id = isset($_POST['attempt_id']) ? sanitize_text_field(wp_unslash($_POST['attempt_id'])) : '';
     $attempts_table = $wpdb->prefix . 'qb_attempts';
     $questions_table = $wpdb->prefix . 'qb_questions';
     $options_table = $wpdb->prefix . 'qb_options';
     $quizzes_table = $wpdb->prefix . 'qb_quizzes';
     $users_table = $wpdb->users;
-    // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching 
+    // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
     $attempt = $wpdb->get_row($wpdb->prepare("SELECT * FROM $attempts_table WHERE random_id = %s", $attempt_id));
     if (!$attempt) {
         wp_send_json_error('Attempt not found');
     }
 
     // Get quiz and user details
-    // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching 
+    // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
     $quiz = $wpdb->get_row($wpdb->prepare("SELECT * FROM $quizzes_table WHERE id = %d", $attempt->quiz_id));
-    // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching 
+    // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
     $user = $attempt->user_id ? $wpdb->get_row($wpdb->prepare("SELECT display_name FROM $users_table WHERE ID = %d", $attempt->user_id)) : null;
 
     $answers = json_decode($attempt->answers, true);
@@ -592,14 +589,8 @@ function qb_export_attempts_csv() {
     
     // CSV headers
     fputcsv($output, array('Attempt ID', 'Quiz Title', 'User', 'Score', 'Total Points', 'Percentage', 'Date'));
-    // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching     
-    $attempts = $wpdb->get_results("
-        SELECT a.*, q.title as quiz_title, u.display_name as user_name 
-        FROM $attempts_table a
-        LEFT JOIN $quizzes_table q ON a.quiz_id = q.id
-        LEFT JOIN $users_table u ON a.user_id = u.ID
-        ORDER BY a.created_at DESC
-    ");
+    // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+    $attempts = $wpdb->get_results(" SELECT a.*, q.title as quiz_title, u.display_name as user_name  FROM $attempts_table a LEFT JOIN $quizzes_table q ON a.quiz_id = q.id LEFT JOIN $users_table u ON a.user_id = u.ID ORDER BY a.created_at DESC");
     
     foreach ($attempts as $attempt) {
         $percentage = round(($attempt->score / $attempt->total_points) * 100);
@@ -623,6 +614,9 @@ add_action('wp_ajax_qb_get_quiz_settings', 'qb_get_quiz_settings');
 function qb_get_quiz_settings() {
     check_ajax_referer('qb_get_settings', 'nonce');
 
+    if (!isset($_POST['quiz_id'])) {
+        wp_send_json_error('Missing quiz ID');
+    }
     $quiz_id = intval($_POST['quiz_id']);
     require_once plugin_dir_path(__FILE__) . 'includes/db/class-quiz-settings-db.php';
     $settings_db = new QB_Quiz_Settings_DB();
@@ -668,7 +662,16 @@ function qb_save_quiz_answers() {
     }
 
     $quiz_id = intval($_POST['quiz_id']);
-    $answers = $_POST['answers'];
+    // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- Decoded and sanitized immediately after retrieval
+    $raw_answers = json_decode(wp_unslash($_POST['answers']), true);
+    if (!is_array($raw_answers)) {
+        $raw_answers = array();
+    }
+    // Sanitize answers array (assuming key-value pairs)
+    $answers = array();
+    foreach ($raw_answers as $key => $value) {
+        $answers[sanitize_text_field($key)] = sanitize_text_field($value);
+    }
 
     // Generate a unique key for this user's quiz attempt
     $user_id = get_current_user_id();
@@ -676,47 +679,6 @@ function qb_save_quiz_answers() {
 
     // Store answers in transient (expires in 1 hour)
     set_transient($key, $answers, HOUR_IN_SECONDS);
-
-    wp_send_json_success();
-}
-
-function qb_get_quiz_answers() {
-    check_ajax_referer('qb_get_answers', 'nonce');
-
-    if (!isset($_POST['quiz_id'])) {
-        wp_send_json_error('Missing quiz ID');
-    }
-
-    $quiz_id = intval($_POST['quiz_id']);
-
-    // Generate the key
-    $user_id = get_current_user_id();
-    $key = 'quiz_answers_' . ($user_id ? $user_id : 'guest') . '_' . $quiz_id;
-
-    // Get answers from transient
-    $answers = get_transient($key);
-    if ($answers === false) {
-        $answers = array();
-    }
-
-    wp_send_json_success($answers);
-}
-
-function qb_clear_quiz_answers() {
-    check_ajax_referer('qb_clear_answers', 'nonce');
-
-    if (!isset($_POST['quiz_id'])) {
-        wp_send_json_error('Missing quiz ID');
-    }
-
-    $quiz_id = intval($_POST['quiz_id']);
-
-    // Generate the key
-    $user_id = get_current_user_id();
-    $key = 'quiz_answers_' . ($user_id ? $user_id : 'guest') . '_' . $quiz_id;
-
-    // Delete the transient
-    delete_transient($key);
 
     wp_send_json_success();
 }
@@ -741,10 +703,13 @@ register_activation_hook(__FILE__, function() {
 });
 
 add_action('admin_init', function() {
+    // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Safe admin redirect, not processing sensitive form data.
     if (get_option('qb_show_onboarding', false)) {
         delete_option('qb_show_onboarding');
         // Only redirect if not already on dashboard page
-        if (!isset($_GET['page']) || $_GET['page'] !== 'quiz-builder') {
+        // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Safe admin redirect, not processing sensitive form data.
+        $current_page = isset($_GET['page']) ? sanitize_text_field(wp_unslash($_GET['page'])) : '';
+        if ($current_page !== 'quiz-builder') {
             wp_safe_redirect(admin_url('admin.php?page=quiz-builder'));
             exit;
         }
@@ -764,9 +729,11 @@ function qb_check_fresh_installation_redirect() {
     $should_redirect = get_option('qb_redirect_to_getting_started', false);
     $onboarding_completed = get_option('qb_onboarding_completed', false);
     
+    // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Safe admin redirect, not processing sensitive form data.
     if ($should_redirect && !$onboarding_completed) {
         // Don't redirect if we're already on getting started page
-        $current_page = isset($_GET['page']) ? $_GET['page'] : '';
+        // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Safe admin redirect, not processing sensitive form data.
+        $current_page = isset($_GET['page']) ? sanitize_text_field(wp_unslash($_GET['page'])) : '';
         if ($current_page !== 'qb-getting-started') {
             // Clear the redirect flag
             delete_option('qb_redirect_to_getting_started');
@@ -810,8 +777,8 @@ function qb_onboarding_create_quiz() {
         wp_send_json_error('Unauthorized');
     }
 
-    $title = sanitize_text_field($_POST['quiz_title']);
-    $description = sanitize_textarea_field($_POST['quiz_description']);
+    $title = isset($_POST['quiz_title']) ? sanitize_text_field(wp_unslash($_POST['quiz_title'])) : '';
+    $description = isset($_POST['quiz_description']) ? sanitize_textarea_field(wp_unslash($_POST['quiz_description'])) : '';
 
     if (empty($title)) {
         wp_send_json_error('Quiz title is required');
@@ -838,9 +805,8 @@ function qb_onboarding_add_question() {
 
     if (!current_user_can('manage_options')) {
         wp_send_json_error('Unauthorized');
-    }    $quiz_id = intval($_POST['quiz_id']);
-    $question_text = sanitize_text_field($_POST['question_text']);
-    
+    }    $quiz_id = isset($_POST['quiz_id']) ? intval($_POST['quiz_id']) : 0;
+    $question_text = isset($_POST['question_text']) ? sanitize_text_field(wp_unslash($_POST['question_text'])) : '';
     if (empty($question_text)) {
         wp_send_json_error('Question text is required');
     }
@@ -867,19 +833,27 @@ function qb_onboarding_add_options() {
         wp_send_json_error('Unauthorized');
     }
 
-    $question_id = intval($_POST['question_id']);
-    $options = $_POST['options'];
-
-    if (empty($options) || !is_array($options)) {
+    $question_id = isset($_POST['question_id']) ? intval($_POST['question_id']) : 0;
+    // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- Decoded and sanitized immediately after retrieval
+    $raw_options = isset($_POST['options']) ? json_decode(wp_unslash($_POST['options']), true) : array();
+    if (empty($raw_options) || !is_array($raw_options)) {
         wp_send_json_error('Options are required');
+    }
+    // Sanitize each option as an array
+    $options = array();
+    foreach ($raw_options as $option) {
+        $options[] = array(
+            'text' => isset($option['text']) ? sanitize_text_field($option['text']) : '',
+            'points' => isset($option['points']) ? intval($option['points']) : 0
+        );
     }
 
     global $wpdb;
     $table_name = $wpdb->prefix . 'qb_options';
 
     foreach ($options as $option) {
-        $option_text = sanitize_text_field($option['text']);
-        $points = intval($option['points']);
+        $option_text = $option['text'];
+        $points = $option['points'];
 
         if (empty($option_text)) {
             continue;
@@ -903,11 +877,16 @@ function qb_onboarding_add_questions() {
         wp_send_json_error('Unauthorized');
     }
 
-    $quiz_id = intval($_POST['quiz_id']);
-    $questions = $_POST['questions'];
-    
-    if (empty($questions) || !is_array($questions)) {
+    $quiz_id = isset($_POST['quiz_id']) ? intval($_POST['quiz_id']) : 0;
+    // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- Decoded and sanitized immediately after retrieval
+    $raw_questions = isset($_POST['questions']) ? json_decode(wp_unslash($_POST['questions']), true) : array();
+    if (empty($raw_questions) || !is_array($raw_questions)) {
         wp_send_json_error('Questions are required');
+    }
+    // Sanitize each question (if array of strings)
+    $questions = array();
+    foreach ($raw_questions as $question) {
+        $questions[] = sanitize_text_field($question);
     }
 
     global $wpdb;
@@ -915,8 +894,6 @@ function qb_onboarding_add_questions() {
     $question_ids = [];
 
     foreach ($questions as $index => $question_text) {
-        $question_text = sanitize_text_field($question_text);
-        
         if (empty($question_text)) {
             continue;
         }
@@ -947,10 +924,25 @@ function qb_onboarding_add_all_options() {
         wp_send_json_error('Unauthorized');
     }
 
-    $question_options = $_POST['question_options'];
-
-    if (empty($question_options) || !is_array($question_options)) {
+    // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- Decoded and sanitized immediately after retrieval
+    $raw_question_options = isset($_POST['question_options']) ? json_decode(wp_unslash($_POST['question_options']), true) : array();
+    if (empty($raw_question_options) || !is_array($raw_question_options)) {
         wp_send_json_error('Question options are required');
+    }
+    // Sanitize question_options: each question_id => array of options
+    $question_options = array();
+    foreach ($raw_question_options as $question_id => $options) {
+        $question_id_int = intval($question_id);
+        $sanitized_options = array();
+        if (is_array($options)) {
+            foreach ($options as $option) {
+                $sanitized_options[] = array(
+                    'text' => isset($option['text']) ? sanitize_text_field($option['text']) : '',
+                    'points' => isset($option['points']) ? intval($option['points']) : 0
+                );
+            }
+        }
+        $question_options[$question_id_int] = $sanitized_options;
     }
 
     global $wpdb;
@@ -958,16 +950,9 @@ function qb_onboarding_add_all_options() {
     $total_options_added = 0;
 
     foreach ($question_options as $question_id => $options) {
-        $question_id = intval($question_id);
-        
-        if (!is_array($options)) {
-            continue;
-        }
-
         foreach ($options as $option) {
-            $option_text = sanitize_text_field($option['text']);
-            $points = intval($option['points']);
-
+            $option_text = $option['text'];
+            $points = $option['points'];
             if (empty($option_text)) {
                 continue;
             }
@@ -987,7 +972,6 @@ function qb_onboarding_add_all_options() {
     if ($total_options_added === 0) {
         wp_send_json_error('Failed to add options');
     }
-
     wp_send_json_success(['message' => 'Options added successfully', 'total_options' => $total_options_added]);
 }
 
@@ -996,8 +980,8 @@ add_action('wp_ajax_qb_export_pdf', 'qb_export_pdf');
 add_action('wp_ajax_nopriv_qb_export_pdf', 'qb_export_pdf');
 
 function qb_export_pdf() {
-    $attempt_id = intval($_GET['attempt_id']);
-    $nonce = sanitize_text_field($_GET['nonce']);
+    $attempt_id = isset($_GET['attempt_id']) ? intval($_GET['attempt_id']) : 0;
+    $nonce = isset($_GET['nonce']) ? sanitize_text_field(wp_unslash($_GET['nonce'])) : '';
     
     // Verify nonce
     if (!wp_verify_nonce($nonce, 'qb_pdf_export_' . $attempt_id)) {
@@ -1008,14 +992,14 @@ function qb_export_pdf() {
     $attempts_table = $wpdb->prefix . 'qb_attempts';
     
     // Get attempt details
-    // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching 
+    // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
     $attempt = $wpdb->get_row($wpdb->prepare("SELECT * FROM $attempts_table WHERE id = %d", $attempt_id));
     if (!$attempt) {
         wp_die('Quiz attempt not found');
     }
     
     // Get quiz details
-    // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching 
+    // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
     $quiz = $wpdb->get_row($wpdb->prepare("SELECT * FROM {$wpdb->prefix}qb_quizzes WHERE id = %d", $attempt->quiz_id));
     if (!$quiz) {
         wp_die('Quiz not found');
