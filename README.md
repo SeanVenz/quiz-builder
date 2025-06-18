@@ -1,4 +1,13 @@
-# Quiz Builder WordPress Plugin
+=== Quiz Builder ===
+Contributors: seanvenz
+Tags: quiz, assessment, results, pdf, education
+Requires at least: 6.2
+Tested up to: 6.8
+Stable tag: 1.0.0
+License: GPLv2 or later
+License URI: https://www.gnu.org/licenses/gpl-2.0.html
+
+# Quiz Builder
 
 A comprehensive WordPress plugin for creating and managing quizzes with detailed results and PDF export functionality.
 

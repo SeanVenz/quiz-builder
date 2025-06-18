@@ -141,7 +141,7 @@ function handle_delete_quiz_submission() {
 function qb_manage_questions_page() {
     global $wpdb;    // Add required scripts and styles
     wp_enqueue_script('jquery-ui-sortable');
-    wp_enqueue_style('jquery-ui', 'https://code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css', array(), '1.12.1');
+    wp_enqueue_style('jquery-ui', plugins_url('assets/css/jquery-ui.css', dirname(__FILE__, 2) . '/quiz-builder.php'), array(), '1.12.1');
 
     $quiz_id = isset($_GET['quiz_id']) ? intval($_GET['quiz_id']) : 0;
 
