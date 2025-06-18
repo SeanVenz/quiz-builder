@@ -16,7 +16,7 @@
         <p><strong>User:</strong> <?php echo esc_html($user ? $user->display_name : 'Guest'); ?></p>
         <p><strong>Score:</strong> <?php echo esc_html($attempt->score); ?>/<?php echo esc_html($attempt->total_points); ?> (<?php echo esc_html(round(($attempt->score / $attempt->total_points) * 100)); ?>%)</p>
         <p><strong>Date:</strong> <?php echo esc_html($attempt->created_at); ?></p>
-    </div>
+        <a href="<?php echo esc_url( home_url( '/quiz-results/' .  $attempt->random_id ) ); ?>">View Answers</a>    </div>
     <h3>Answers</h3>
     <table class="widefat fixed striped">
         <thead><tr><th>Question</th><th>Answer</th><th>Points</th></tr></thead>
