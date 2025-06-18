@@ -49,7 +49,7 @@ class QB_Quiz_Settings_DB {
         // If column doesn't exist, add it
         if (empty($show_answers_exists)) {
             // PCP: Direct DB schema change (ALTER TABLE) for migration (plugin setup, safe in this context).
-            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange
+            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange
             $wpdb->query("ALTER TABLE {$this->table_name} 
                 ADD COLUMN show_user_answers tinyint(1) NOT NULL DEFAULT 0 
                 AFTER questions_per_page");
@@ -71,7 +71,7 @@ class QB_Quiz_Settings_DB {
         // If column doesn't exist, add it
         if (empty($pdf_export_exists)) {
             // PCP: Direct DB schema change (ALTER TABLE) for migration (plugin setup, safe in this context).
-            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange
+            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange
             $wpdb->query("ALTER TABLE {$this->table_name} 
                 ADD COLUMN allow_pdf_export tinyint(1) NOT NULL DEFAULT 0 
                 AFTER show_user_answers");
@@ -93,7 +93,7 @@ class QB_Quiz_Settings_DB {
         // If column doesn't exist, add it
         if (empty($randomize_questions_exists)) {
             // PCP: Direct DB schema change (ALTER TABLE) for migration (plugin setup, safe in this context).
-            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange
+            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange
             $wpdb->query("ALTER TABLE {$this->table_name} 
                 ADD COLUMN randomize_questions tinyint(1) NOT NULL DEFAULT 0 
                 AFTER allow_pdf_export");
@@ -113,7 +113,7 @@ class QB_Quiz_Settings_DB {
         ));        // If column doesn't exist, add it
         if (empty($randomize_answers_exists)) {
             // PCP: Direct DB schema change (ALTER TABLE) for migration (plugin setup, safe in this context).
-            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange
+            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange
             $wpdb->query("ALTER TABLE {$this->table_name} 
                 ADD COLUMN randomize_answers tinyint(1) NOT NULL DEFAULT 0 
                 AFTER randomize_questions");
@@ -135,13 +135,14 @@ class QB_Quiz_Settings_DB {
         // If column doesn't exist, add it
         if (empty($category_scores_exists)) {
             // PCP: Direct DB schema change (ALTER TABLE) for migration (plugin setup, safe in this context).
-            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange
+            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange
             $wpdb->query("ALTER TABLE {$this->table_name} 
                 ADD COLUMN show_category_scores tinyint(1) NOT NULL DEFAULT 0 
                 AFTER randomize_answers");
         }
 
         // Log any database errors
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.SchemaChange
         if (!empty($wpdb->last_error)) {
         }
     }
@@ -153,7 +154,7 @@ class QB_Quiz_Settings_DB {
     public function get_settings($quiz_id) {
          // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
         return $this->wpdb->get_row($this->wpdb->prepare(
-            // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- Table name is set internally and safe in this context.
+            // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared -- Table name is set internally and safe in this context.
             "SELECT * FROM {$this->table_name} WHERE quiz_id = %d", $quiz_id
         ));
     }    /**

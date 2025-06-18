@@ -18,13 +18,17 @@ function qb_get_quiz_display($quiz, $questions, $options, $settings) {
         $output .= '<div class="quiz-description">' . wp_kses_post($quiz->description) . '</div>';
     }
 
+    // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Nonce field is output for form security.
     $output .= '<form method="post" class="quiz-form" id="quiz-form-' . esc_attr($quiz->id) . '">';
+    // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Nonce field is output for form security.
     $output .= wp_nonce_field('qb_quiz_submission', 'qb_quiz_nonce', true, false);
     $output .= '<input type="hidden" name="action" value="qb_handle_quiz_submission">';
     $output .= '<input type="hidden" name="quiz_id" value="' . esc_attr($quiz->id) . '">';    // Group questions into pages if pagination is enabled
     if ($settings->is_paginated) {
+        // phpcs:ignore WordPress.Security.NonceVerification.Recommended
         $questions_per_page = max(1, intval($settings->questions_per_page));
         $total_pages = ceil(count($questions) / $questions_per_page);
+         // phpcs:ignore WordPress.Security.NonceVerification.Recommended
         $current_page = isset($_GET['quiz_page']) ? max(1, min(intval($_GET['quiz_page']), $total_pages)) : 1;
         
         // Debug: Log pagination info

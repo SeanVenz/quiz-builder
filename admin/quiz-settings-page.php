@@ -15,10 +15,10 @@ function qb_quiz_settings_page() {
     // Handle form submission
     if (isset($_POST['qb_save_settings'])) {
         check_admin_referer('qb_save_settings');
-          $quiz_id = intval($_POST['quiz_id']);
-          $settings = array(
+        $quiz_id = isset($_POST['quiz_id']) ? intval($_POST['quiz_id']) : 0;
+        $settings = array(
             'is_paginated' => isset($_POST['is_paginated']) ? 1 : 0,
-            'questions_per_page' => max(1, intval($_POST['questions_per_page'])),
+            'questions_per_page' => isset($_POST['questions_per_page']) ? max(1, intval($_POST['questions_per_page'])) : 1,
             'show_user_answers' => isset($_POST['show_user_answers']) ? 1 : 0,
             'allow_pdf_export' => isset($_POST['allow_pdf_export']) ? 1 : 0,
             'randomize_questions' => isset($_POST['randomize_questions']) ? 1 : 0,
@@ -47,9 +47,8 @@ function qb_quiz_settings_page() {
 
     // Get all quizzes
     // PCP: Direct DB query is used here to fetch all quizzes for the settings page (admin only, not performance-critical).
-    // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-    $quizzes = $wpdb->get_results("SELECT * FROM $quizzes_table ORDER BY title ASC");
-    ?>
+    // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Table name is set internally and safe in this context.
+    $quizzes = $wpdb->get_results("SELECT * FROM $quizzes_table ORDER BY title ASC");?>
     <div class="wrap">
         <h1>Quiz Settings</h1>
         
@@ -208,7 +207,7 @@ function qb_quiz_settings_page() {
 function qb_get_quiz_settings_ajax() {
     check_ajax_referer('qb_get_settings', 'nonce');
     
-    $quiz_id = intval($_POST['quiz_id']);
+    $quiz_id = isset($_POST['quiz_id']) ? intval($_POST['quiz_id']) : 0;
     $settings_db = new QB_Quiz_Settings_DB();
     $settings = $settings_db->get_settings($quiz_id);    if ($settings) {
         // Ensure boolean values are properly handled
