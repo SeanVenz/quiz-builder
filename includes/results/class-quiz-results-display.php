@@ -107,19 +107,19 @@ class QB_Quiz_Results_Display {
      */
     private function get_attempt_details($attempt_id) {
         $attempts_table = $this->wpdb->prefix . 'qb_attempts';
+        // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- Table name is set internally and safe in this context.
         return $this->wpdb->get_row($this->wpdb->prepare(
-            "SELECT * FROM `{$attempts_table}` WHERE id = %d",
-            $attempt_id
-        ));
+            // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared -- Table name is set internally and safe in this context.
+            "SELECT * FROM `{$attempts_table}` WHERE id = %d", $attempt_id));
     }    /**
      * Get quiz details
      */
     private function get_quiz_details($quiz_id) {
         $quizzes_table = $this->wpdb->prefix . 'qb_quizzes';
+        // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- Table name is set internally and safe in this context.
         return $this->wpdb->get_row($this->wpdb->prepare(
-            "SELECT * FROM `{$quizzes_table}` WHERE id = %d",
-            $quiz_id
-        ));
+            // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared -- Table name is set internally and safe in this context.
+            "SELECT * FROM `{$quizzes_table}` WHERE id = %d", $quiz_id));
     }    /**
      * Get attempt answers with question and option details
      */
@@ -163,6 +163,7 @@ class QB_Quiz_Results_Display {
                 GROUP BY q.id, q.question
                 ORDER BY q.order ASC";
         
+        // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- Table and placeholders are set internally and safe in this context.
         $questions = $this->wpdb->get_results($this->wpdb->prepare($sql, $question_ids));
 
         if (!$questions) {
@@ -185,6 +186,7 @@ class QB_Quiz_Results_Display {
                            FROM `{$options_table}` 
                            WHERE id IN ($option_placeholders)";
             
+            // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- Table and placeholders are set internally and safe in this context.
             $options = $this->wpdb->get_results($this->wpdb->prepare($options_sql, $selected_option_ids));
             
             foreach ($options as $option) {

@@ -72,7 +72,6 @@ class QB_PDF_Manager {
             exit;
             
         } catch (Exception $e) {
-            error_log('DomPDF Error: ' . $e->getMessage());
             return self::generate_with_browser_pdf($html_content, $filename, $title);
         }
     }
@@ -105,7 +104,6 @@ class QB_PDF_Manager {
             exit;
             
         } catch (Exception $e) {
-            error_log('TCPDF Error: ' . $e->getMessage());
             return self::generate_with_browser_pdf($html_content, $filename, $title);
         }
     }

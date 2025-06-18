@@ -28,7 +28,6 @@ function qb_get_quiz_display($quiz, $questions, $options, $settings) {
         $current_page = isset($_GET['quiz_page']) ? max(1, min(intval($_GET['quiz_page']), $total_pages)) : 1;
         
         // Debug: Log pagination info
-        error_log("Quiz " . $quiz->id . " - Template pagination: total questions=" . count($questions) . ", questions_per_page=" . $questions_per_page . ", total_pages=" . $total_pages . ", current_page=" . $current_page);
         
         $output .= '<div class="quiz-pagination-info">';
         $output .= '<span class="current-page">Page ' . esc_html($current_page) . ' of ' . esc_html($total_pages) . '</span>';
@@ -40,10 +39,8 @@ function qb_get_quiz_display($quiz, $questions, $options, $settings) {
         $current_questions = array_slice($questions, $start_index, $questions_per_page);
         
         // Debug: Log current page questions
-        error_log("Quiz " . $quiz->id . " - Page " . $current_page . " questions: " . implode(',', array_map(function($q) { return $q->id; }, $current_questions)));
     } else {
         $current_questions = $questions;
-        error_log("Quiz " . $quiz->id . " - Non-paginated, using all questions: " . implode(',', array_map(function($q) { return $q->id; }, $current_questions)));
     }
 
     $output .= '<div class="questions-container">';

@@ -78,8 +78,8 @@ function qb_admin_page_content()
     global $wpdb;
     $table_name = $wpdb->prefix . 'qb_quizzes';    // Handle form submission
     if (isset($_POST['qb_add_quiz'])) {
-        // Verify nonce
-        if (!wp_verify_nonce($_POST['qb_add_quiz_nonce'], 'qb_add_quiz_action')) {
+        // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- Nonce does not need sanitization, only validation.
+        if (!isset($_POST['qb_add_quiz_nonce']) || !wp_verify_nonce(wp_unslash($_POST['qb_add_quiz_nonce']), 'qb_add_quiz_action')) {
             wp_die('Security check failed');
         }
         

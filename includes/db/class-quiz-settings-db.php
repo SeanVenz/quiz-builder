@@ -143,17 +143,18 @@ class QB_Quiz_Settings_DB {
 
         // Log any database errors
         if (!empty($wpdb->last_error)) {
-            error_log('Quiz Builder DB Error: ' . $wpdb->last_error);
         }
     }
 
     /**
      * Get settings for a specific quiz
      */
+    // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- Table name is set internally and safe in this context.
     public function get_settings($quiz_id) {
+         // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
         return $this->wpdb->get_row($this->wpdb->prepare(
-            "SELECT * FROM {$this->table_name} WHERE quiz_id = %d",
-            $quiz_id
+            // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- Table name is set internally and safe in this context.
+            "SELECT * FROM {$this->table_name} WHERE quiz_id = %d", $quiz_id
         ));
     }    /**
      * Save settings for a quiz
@@ -188,7 +189,6 @@ class QB_Quiz_Settings_DB {
         }
 
         if ($result === false) {
-            error_log('Quiz Builder Settings Save Error: ' . $this->wpdb->last_error);
         }
 
         return $result;

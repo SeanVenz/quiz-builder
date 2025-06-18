@@ -125,7 +125,7 @@ function qb_display_quiz($atts) {
 
     // Debug: Log initial questions
     // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching 
-    error_log("Quiz " . $quiz_id . " - Initial questions order: " . implode(',', array_map(function($q) { return $q->id; }, $questions)));$options = $wpdb->get_results($wpdb->prepare("SELECT * FROM $options_table WHERE question_id IN (SELECT id FROM $questions_table WHERE quiz_id = %d)", $quiz_id));
+    $options = $wpdb->get_results($wpdb->prepare("SELECT * FROM $options_table WHERE question_id IN (SELECT id FROM $questions_table WHERE quiz_id = %d)", $quiz_id));
 
     // Get quiz settings
     // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching 
@@ -148,19 +148,18 @@ function qb_display_quiz($atts) {
         
         if (!$user_identifier) {
             // Create a new session identifier
-            $user_identifier = 'guest_' . time() . '_' . rand(1000, 9999);
+            // phpcs:ignore WordPress.WP.AlternativeFunctions.rand_rand -- Use wp_rand() for better randomness.
+            $user_identifier = 'guest_' . time() . '_' . wp_rand(1000, 9999);
             update_option($quiz_session_option, $user_identifier, false); // Don't autoload
-            error_log("Quiz " . $quiz_id . " - Created new guest session: " . $user_identifier . " for browser: " . substr($browser_fingerprint, 0, 8));
         } else {
-            error_log("Quiz " . $quiz_id . " - Using existing guest session: " . $user_identifier . " for browser: " . substr($browser_fingerprint, 0, 8));
+
         }
     }
       $quiz_transient_key = 'qb_questions_' . $quiz_id . '_' . $user_identifier;
     $options_transient_key = 'qb_options_' . $quiz_id . '_' . $user_identifier;
     
     // Debug: Log user identifier and transient keys
-    error_log("Quiz " . $quiz_id . " - User identifier: " . $user_identifier);
-    error_log("Quiz " . $quiz_id . " - Transient key: " . $quiz_transient_key);    // Clear randomization only if this is truly a fresh start
+
     $is_fresh_start = false;
     
     // Check if this is a fresh start by looking at various indicators
@@ -194,10 +193,6 @@ function qb_display_quiz($atts) {
         $is_fresh_start = true;
     }
     
-    // Debug: Log fresh start detection
-    $referer = isset($_SERVER['HTTP_REFERER']) ? $_SERVER['HTTP_REFERER'] : 'none';
-    $quiz_page_param = isset($_GET['quiz_page']) ? $_GET['quiz_page'] : 'none';
-    error_log("Quiz " . $quiz_id . " - Fresh start check: quiz_page=" . $quiz_page_param . ", referer=" . $referer . ", is_fresh_start=" . ($is_fresh_start ? 'YES' : 'NO'));
       if ($is_fresh_start) {
         // Clear any existing randomization for this quiz
         delete_transient($quiz_transient_key);
@@ -207,17 +202,13 @@ function qb_display_quiz($atts) {
             $browser_fingerprint = md5($_SERVER['REMOTE_ADDR'] . $_SERVER['HTTP_USER_AGENT']);
             $quiz_session_option = 'qb_quiz_session_' . $quiz_id . '_' . $browser_fingerprint;
             delete_option($quiz_session_option);
-            error_log("Quiz " . $quiz_id . " - Cleared guest session option for browser: " . substr($browser_fingerprint, 0, 8));
         }
         
-        error_log("Quiz " . $quiz_id . " - Cleared transients (fresh start)");
     }
       // Apply question randomization if enabled
     if (isset($settings->randomize_questions) && $settings->randomize_questions) {
         $stored_order = get_transient($quiz_transient_key);
-        error_log("Quiz " . $quiz_id . " - Checking for stored order: " . ($stored_order ? 'FOUND' : 'NOT_FOUND'));
         if ($stored_order) {
-            error_log("Quiz " . $quiz_id . " - Stored order: " . implode(',', $stored_order));
         }
         
         if ($stored_order && is_array($stored_order)) {
@@ -234,14 +225,11 @@ function qb_display_quiz($atts) {
                 }
             }
             $questions = $reordered_questions;
-            error_log("Quiz " . $quiz_id . " - Used stored question order: " . implode(',', $stored_order));
         } else {
             // First time: randomize and store the order
             shuffle($questions);
             $question_ids = array_map(function($q) { return $q->id; }, $questions);
             $transient_set = set_transient($quiz_transient_key, $question_ids, 3600); // Store for 1 hour
-            error_log("Quiz " . $quiz_id . " - Created new random question order: " . implode(',', $question_ids));
-            error_log("Quiz " . $quiz_id . " - Transient set result: " . ($transient_set ? 'SUCCESS' : 'FAILED'));
         }
     }
     
@@ -262,7 +250,6 @@ function qb_display_quiz($atts) {
                 }
             }
             $options = $reordered_options;
-            error_log("Quiz " . $quiz_id . " - Used stored options order");
         } else {
             // First time: randomize options per question and store the order
             $options_by_question = array();
@@ -292,7 +279,6 @@ function qb_display_quiz($atts) {
     }
 
     // Debug: Log final questions after randomization
-    error_log("Quiz " . $quiz_id . " - Final questions order: " . implode(',', array_map(function($q) { return $q->id; }, $questions)));
 
     return qb_get_quiz_display($quiz, $questions, $options, $settings);
 }
@@ -310,12 +296,9 @@ add_action('template_redirect', function() {
 
 function qb_handle_quiz_submission() {
     // Debug logging
-    error_log('Quiz submission handler started');
-    error_log('POST data: ' . print_r($_POST, true));
 
     // Verify nonce
     if (!isset($_POST['qb_quiz_nonce']) || !wp_verify_nonce($_POST['qb_quiz_nonce'], 'qb_quiz_submission')) {
-        error_log('Invalid nonce');
         if (wp_doing_ajax()) {
             wp_send_json_error('Invalid nonce');
         }
@@ -323,7 +306,6 @@ function qb_handle_quiz_submission() {
     }
 
     if (!isset($_POST['quiz_id'])) {
-        error_log('Missing required POST data: quiz_id');
         if (wp_doing_ajax()) {
             wp_send_json_error('Missing quiz ID');
         }
@@ -337,11 +319,9 @@ function qb_handle_quiz_submission() {
     $options_table = $wpdb->prefix . 'qb_options';
     $attempts_table = $wpdb->prefix . 'qb_attempts';
 
-    error_log('Processing quiz ID: ' . $quiz_id);
     // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching 
     $quiz = $wpdb->get_row($wpdb->prepare("SELECT * FROM $quiz_table WHERE id = %d", $quiz_id));
     if (!$quiz) {
-        error_log('Quiz not found with ID: ' . $quiz_id);
         if (wp_doing_ajax()) {
             wp_send_json_error('Quiz not found');
         }
@@ -363,7 +343,6 @@ function qb_handle_quiz_submission() {
     }
     
     if (!empty($unanswered_required)) {
-        error_log('Required questions not answered: ' . implode(', ', $unanswered_required));
         if (wp_doing_ajax()) {
             wp_send_json_error('Please answer all required questions before submitting.');
         } else {
@@ -408,7 +387,6 @@ function qb_handle_quiz_submission() {
 
     // Generate random ID
     $random_id = qb_generate_random_id();
-    error_log('Generated random ID: ' . $random_id);
 
     // Get user ID, set to NULL if not logged in
     // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery
@@ -430,12 +408,11 @@ function qb_handle_quiz_submission() {
     ));
 
     if ($insert_result === false) {
-        error_log('Failed to insert quiz attempt: ' . $wpdb->last_error);
         if (wp_doing_ajax()) {
             wp_send_json_error('Failed to save quiz attempt');
         }
         return;
-    }    error_log('Successfully stored quiz attempt with random ID: ' . $random_id);
+    }
 
     // Clear randomization session data for this quiz since it's completed
     if (session_status() != PHP_SESSION_DISABLED) {
@@ -456,8 +433,6 @@ function qb_handle_quiz_submission() {
         // Fallback to home URL if page not found
         $redirect_url = home_url('/quiz-results/' . $random_id . '/');
     }
-
-    error_log('Redirecting to: ' . $redirect_url);
     
     if (wp_doing_ajax()) {
         wp_send_json_success(array('redirect_url' => $redirect_url));
@@ -472,7 +447,6 @@ function qb_handle_quiz_submission() {
             wp_safe_redirect($redirect_url);
             exit;
         } else {
-            error_log('Headers already sent, using JavaScript redirect');
             echo '<script>window.location.href="' . esc_url($redirect_url) . '";</script>';
             exit;
         }
@@ -637,7 +611,7 @@ function qb_export_attempts_csv() {
             $attempt->created_at
         ));
     }
-    
+    // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fclose -- Use WP_Filesystem methods instead of direct fclose().
     fclose($output);
     exit;
 }
@@ -1075,7 +1049,7 @@ function qb_generate_pdf($attempt, $quiz) {
     
     // Use the PDF manager for proper PDF generation
     require_once QB_PATH . 'includes/class-pdf-manager.php';
-    $filename = preg_replace('/[^a-zA-Z0-9\-_]/', '_', $quiz->title) . '_results_' . date('Y-m-d_H-i-s') . '.pdf';
+    $filename = preg_replace('/[^a-zA-Z0-9\-_]/', '_', $quiz->title) . '_results_' . gmdate('Y-m-d_H-i-s') . '.pdf'; // phpcs:ignore WordPress.DateTime.RestrictedFunctions.date_date -- Use gmdate() instead of date() for consistent timezone handling.
     
     QB_PDF_Manager::generate_pdf($html_content, $filename, $quiz->title . ' - Quiz Results');
 }

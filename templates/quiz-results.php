@@ -88,8 +88,6 @@ function qb_calculate_category_scores($quiz_id, $user_answers) {
  * Display quiz results template
  */
 function qb_get_quiz_results($quiz, $score, $total_possible_points, $user_answers = array(), $attempt_id = null) {
-    error_log('Displaying quiz results for quiz ID: ' . $quiz->id);
-    error_log('Score: ' . $score . ' out of ' . $total_possible_points);
 
     $percentage = $total_possible_points > 0 ? round(($score / $total_possible_points) * 100) : 0;
 

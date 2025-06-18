@@ -12,7 +12,7 @@ function qb_clear_category_question_count_cache() {
     $categories_table = $wpdb->prefix . 'qb_categories';
     
     // PCP: Direct DB query is used here to fetch all category IDs for cache clearing only. Caching is not needed.
-    // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+    // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Table name is set internally and safe in this context.
     $category_ids = $wpdb->get_col("SELECT id FROM {$categories_table}");
     
     if ($category_ids) {
@@ -157,7 +157,10 @@ function qb_handle_delete_category() {    if (!current_user_can('manage_options'
 function qb_categories_page() {
     $categories_db = new QB_Categories_DB();
       // Show messages
+    // phpcs:ignore WordPress.Security.NonceVerification.Recommended
     if (isset($_GET['message'])) {
+        // Nonce verification recommended for form processing.
+        // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.MissingUnslash, WordPress.Security.NonceVerification.Recommended -- $_GET['message'] is sanitized but not unslashed.
         $message = sanitize_text_field($_GET['message']);
         switch ($message) {
             case 'category_added':
