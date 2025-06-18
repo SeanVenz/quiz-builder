@@ -175,7 +175,7 @@ function qb_quiz_attempts_page() {
         <?php if ($attempts): ?>
             <div class="tablenav top">
                 <div class="alignleft actions">
-                    <!-- <a href="<?php echo esc_url(wp_nonce_url(admin_url('admin-ajax.php?action=qb_export_attempts_csv'), 'qb_export_csv', 'nonce')); ?>" class="button">Export to CSV</a> -->
+                    <a href="<?php echo esc_url(wp_nonce_url(admin_url('admin-ajax.php?action=qb_export_attempts_csv'), 'qb_export_csv', 'nonce')); ?>" class="button">Export to CSV</a>
                 </div>
                 <br class="clear">
             </div>

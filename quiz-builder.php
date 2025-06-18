@@ -142,7 +142,9 @@ function qb_display_quiz($atts) {
     if (!$user_identifier) {
         // For non-logged-in users, create a browser-specific session identifier
         // Use IP + User Agent to create a unique identifier per browser
-        $browser_fingerprint = md5($_SERVER['REMOTE_ADDR'] . $_SERVER['HTTP_USER_AGENT']);
+        $remote_addr = isset($_SERVER['REMOTE_ADDR']) ? sanitize_text_field(wp_unslash($_SERVER['REMOTE_ADDR'])) : '';
+        $user_agent = isset($_SERVER['HTTP_USER_AGENT']) ? sanitize_text_field(wp_unslash($_SERVER['HTTP_USER_AGENT'])) : '';
+        $browser_fingerprint = md5($remote_addr . $user_agent);
         $quiz_session_option = 'qb_quiz_session_' . $quiz_id . '_' . $browser_fingerprint;
         $user_identifier = get_option($quiz_session_option);
         
