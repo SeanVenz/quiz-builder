@@ -1,1 +1,27 @@
+# Archive files
 *.zip
+*.tar.gz
+*.rar
+
+# Development files
+*-test.php
+*-preview.html
+*.log
+
+# Documentation artifacts
+DEPLOYMENT_*.md
+FIX_*.md
+IMPLEMENTATION_*.md
+
+# Vendor/Library directories
+vendor/
+node_modules/
+
+# IDE files
+.vscode/
+.idea/
+*.sublime-*
+
+# OS files
+.DS_Store
+Thumbs.db
