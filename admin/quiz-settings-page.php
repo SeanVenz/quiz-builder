@@ -113,44 +113,24 @@ function qb_quiz_settings_page() {
                         </td>
                     </tr>
                     
-                    <?php
-                    // Show premium feature - Sub-score Calculations
-                    if (function_exists('qb_lock_feature')) {
-                        if (qb_lock_feature('advanced_analytics', 'Sub-score calculations require a premium license to unlock advanced analytics features.')) {
-                            // Feature is unlocked, show the setting
-                            ?>
-                            <tr>
-                                <th><label for="show_category_scores">Show Sub-score Calculations</label></th>
-                                <td>
-                                    <input type="checkbox" name="show_category_scores" id="show_category_scores" value="1">
-                                    <p class="description">Display category-based scoring breakdown in quiz results. Shows individual scores for each question category used in the quiz.</p>
-                                </td>
-                            </tr>
-                            <?php
-                        }
-                        // If feature is locked, qb_lock_feature() will display the premium notice
-                    } else {
-                        // Fallback for when license manager is not loaded
-                        ?>
-                        <tr>
-                            <th><label for="show_category_scores">Show Sub-score Calculations</label></th>
-                            <td>
-                                <input type="checkbox" name="show_category_scores" id="show_category_scores" value="1">
-                                <p class="description">Display category-based scoring breakdown in quiz results. Shows individual scores for each question category used in the quiz.</p>
-                            </td>
-                        </tr>
-                        <?php
-                    }
-                    ?>
+                    <tr>
+                        <th><label for="show_category_scores">Show Sub-score Calculations</label></th>
+                        <td>
+                            <input type="checkbox" name="show_category_scores" id="show_category_scores" value="1">
+                            <p class="description">Display category-based scoring breakdown in quiz results. Shows individual scores for each question category used in the quiz.</p>
+                        </td>
+                    </tr>
                 </table>
                 <?php submit_button('Save Settings', 'primary', 'qb_save_settings'); ?>
             </form>
 
-            <script>            jQuery(document).ready(function($) {
+            <script>            
+            jQuery(document).ready(function($) {
                 const quizSelect = document.getElementById('quiz_id');
                 const isPaginated = document.getElementById('is_paginated');
                 const questionsPerPage = document.getElementById('questions_per_page');
-                const showUserAnswers = document.getElementById('show_user_answers');                const allowPdfExport = document.getElementById('allow_pdf_export');
+                const showUserAnswers = document.getElementById('show_user_answers');
+                const allowPdfExport = document.getElementById('allow_pdf_export');
                 const randomizeQuestions = document.getElementById('randomize_questions');
                 const randomizeAnswers = document.getElementById('randomize_answers');
                 const showCategoryScores = document.getElementById('show_category_scores');
@@ -162,7 +142,8 @@ function qb_quiz_settings_page() {
                     } else {
                         resetToDefaults();
                     }
-                });                function resetToDefaults() {
+                });                
+                function resetToDefaults() {
                     isPaginated.checked = false;
                     questionsPerPage.value = 1;
                     showUserAnswers.checked = false;
@@ -170,7 +151,8 @@ function qb_quiz_settings_page() {
                     randomizeQuestions.checked = false;
                     randomizeAnswers.checked = false;
                     showCategoryScores.checked = false;
-                }                function loadQuizSettings(quizId) {
+                }                
+                function loadQuizSettings(quizId) {
                     $.post(ajaxurl, {
                         action: 'qb_get_quiz_settings',
                         quiz_id: quizId,
@@ -181,7 +163,8 @@ function qb_quiz_settings_page() {
                             
                             isPaginated.checked = settings.is_paginated === '1' || settings.is_paginated === 1;
                             questionsPerPage.value = settings.questions_per_page || 1;
-                            showUserAnswers.checked = settings.show_user_answers === '1' || settings.show_user_answers === 1;                            allowPdfExport.checked = settings.allow_pdf_export === '1' || settings.allow_pdf_export === 1;
+                            showUserAnswers.checked = settings.show_user_answers === '1' || settings.show_user_answers === 1;
+                            allowPdfExport.checked = settings.allow_pdf_export === '1' || settings.allow_pdf_export === 1;
                             randomizeQuestions.checked = settings.randomize_questions === '1' || settings.randomize_questions === 1;
                             randomizeAnswers.checked = settings.randomize_answers === '1' || settings.randomize_answers === 1;
                             showCategoryScores.checked = settings.show_category_scores === '1' || settings.show_category_scores === 1;
@@ -215,7 +198,8 @@ function qb_quiz_settings_page() {
                 });
             });
             </script>
-        <?php else: ?>            <div class="notice notice-warning">
+        <?php else: ?>            
+            <div class="notice notice-warning">
                 <p>No quizzes found. Please <a href="<?php echo esc_url(admin_url('admin.php?page=quiz-builder')); ?>">create a quiz</a> first.</p>
             </div>
         <?php endif; ?>
