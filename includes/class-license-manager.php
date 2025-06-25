@@ -121,12 +121,11 @@ class QB_License_Manager {
      */
     public function ajax_validate_license() {
         check_ajax_referer('qb_license_nonce', 'nonce');
-        
-        if (!current_user_can('manage_options')) {
+          if (!current_user_can('manage_options')) {
             wp_die('Unauthorized');
         }
         
-        $license_key = sanitize_text_field($_POST['license_key']);
+        $license_key = isset($_POST['license_key']) ? sanitize_text_field($_POST['license_key']) : '';
         $result = $this->validate_license($license_key);
         
         wp_send_json($result);
