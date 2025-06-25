@@ -1,12 +1,10 @@
 === Quiz Builder ===
-Contributors: seanvenzquijano
-Donate link: https://yourwebsite.com/donate
-Tags: quiz, survey, education, interactive, assessment, learning, questions, answers, test, exam
-Requires at least: 5.0
-Tested up to: 6.4
-Requires PHP: 7.4
+Contributors: pikocode
+Tags: quiz, assessment, results, pdf, education
+Requires at least: 6.2
+Tested up to: 6.8
 Stable tag: 1.0.0
-License: GPL2 or later
+License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
 A lightweight and flexible quiz plugin that allows you to create engaging quizzes with complete control over questions, answers, and results.
