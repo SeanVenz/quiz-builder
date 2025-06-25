@@ -1035,21 +1035,14 @@ function qb_manage_questions_page() {
             var questionId = $(this).data('question-id');
             var isRequired = $(this).is(':checked');
             
-            console.log('Required checkbox changed:', {
-                questionId: questionId,
-                isRequired: isRequired,
-                element: this
-            });
             
             if (!questionId) {
-                console.error('No question ID found for required checkbox');
                 alert('Error: Could not update question status. Please refresh the page and try again.');
                 return;
             }
             
             // Check if the form exists
             if ($('#toggle-required-form').length === 0) {
-                console.error('Toggle required form not found in DOM');
                 alert('Error: Form not found. Please refresh the page and try again.');
                 return;
             }
@@ -1057,10 +1050,6 @@ function qb_manage_questions_page() {
             $('#toggle-required-question-id').val(questionId);
             $('#toggle-required-status').val(isRequired ? 'true' : 'false');
             
-            console.log('Submitting toggle form with:', {
-                questionId: $('#toggle-required-question-id').val(),
-                status: $('#toggle-required-status').val()
-            });
             
             $('#toggle-required-form').submit();
         });

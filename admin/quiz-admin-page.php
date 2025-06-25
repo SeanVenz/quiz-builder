@@ -280,7 +280,6 @@ function qb_quiz_attempts_page() {
                             })
                             .catch(error => {
                                 content.innerHTML = '<p class="error">Error loading attempt details.</p>';
-                                console.error('Error:', error);
                             });
                         });
                     });
