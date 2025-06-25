@@ -61,15 +61,23 @@ function qb_add_admin_menu()
         'manage_options',
         'qb-quiz-attempts',
         'qb_quiz_attempts_page'
-    );
-
-    add_submenu_page(
+    );    add_submenu_page(
         'quiz-builder',
         'Categories',
         'Categories',
         'manage_options',
         'qb-categories',
         'qb_categories_page'
+    );
+
+    // Add-ons page for license management
+    add_submenu_page(
+        'quiz-builder',
+        'Add-ons',
+        'Add-ons',
+        'manage_options',
+        'qb-addons',
+        'qb_addons_page'
     );
 }
 
@@ -434,5 +442,289 @@ function qb_show_dashboard() {
             <?php endif; ?>
         </div>
     </div>
+    <?php
+}
+
+/**
+ * Add-ons page for license management
+ */
+function qb_addons_page() {
+    // Include license manager
+    require_once(plugin_dir_path(dirname(__FILE__)) . 'includes/class-license-manager.php');
+    $license_manager = QB_License_Manager::get_instance();
+    $license_status = $license_manager->get_license_status();
+    
+    ?>
+    <div class="wrap">
+        <h1>Quiz Builder Add-ons</h1>
+        
+        <div class="qb-license-section" style="background: #fff; padding: 20px; border: 1px solid #ddd; border-radius: 5px; margin: 20px 0;">
+            <h2>License Management</h2>
+            
+            <?php if ($license_status['status'] === 'active'): ?>
+                <!-- Active License -->
+                <div class="qb-license-active" style="background: #d1eddb; border: 1px solid #00a32a; border-radius: 4px; padding: 15px; margin: 15px 0;">
+                    <div style="display: flex; align-items: center;">
+                        <span class="dashicons dashicons-yes-alt" style="color: #00a32a; margin-right: 10px; font-size: 20px;"></span>
+                        <div>
+                            <strong style="color: #00a32a;">License Active</strong><br>
+                            <span style="color: #00a32a;">Your premium features are unlocked!</span><br>
+                            <small style="color: #666;">
+                                License: <?php echo esc_html(substr($license_status['key'], 0, 8) . '...' . substr($license_status['key'], -8)); ?><br>
+                                Activated: <?php echo esc_html($license_status['validated_at']); ?>
+                            </small>
+                        </div>
+                    </div>
+                    
+                    <div style="margin-top: 15px;">
+                        <h4>Unlocked Features:</h4>
+                        <ul style="margin-left: 20px;">
+                            <?php foreach ($license_status['features'] as $feature): ?>
+                                <li><?php echo esc_html(ucwords(str_replace('_', ' ', $feature))); ?></li>
+                            <?php endforeach; ?>
+                        </ul>
+                    </div>
+                    
+                    <button type="button" id="qb-deactivate-license" class="button" style="margin-top: 15px;">Deactivate License</button>
+                </div>
+            <?php else: ?>
+                <!-- Inactive License -->
+                <div class="qb-license-inactive">
+                    <p>Enter your license key below to unlock premium features:</p>
+                    
+                    <form id="qb-license-form" style="max-width: 500px;">
+                        <table class="form-table">
+                            <tr>
+                                <th><label for="license_key">License Key</label></th>
+                                <td>
+                                    <input type="text" id="license_key" name="license_key" class="regular-text" placeholder="XXXX-XXXX-XXXX-XXXX-XXXX-XXXX-XXXX-XXXX" required>
+                                    <p class="description">Enter your 32-character license key</p>
+                                </td>
+                            </tr>
+                        </table>
+                        
+                        <p class="submit">
+                            <button type="submit" class="button button-primary">Activate License</button>
+                            <span id="qb-license-spinner" class="spinner" style="float: none; margin-left: 10px;"></span>
+                        </p>
+                    </form>
+                    
+                    <div id="qb-license-message" style="margin-top: 15px;"></div>
+                </div>
+            <?php endif; ?>
+        </div>
+        
+        <div class="qb-premium-features" style="background: #fff; padding: 20px; border: 1px solid #ddd; border-radius: 5px; margin: 20px 0;">
+            <h2>Premium Features</h2>
+            <div class="qb-features-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px;">
+                
+                <div class="qb-feature-card" style="border: 1px solid #ddd; border-radius: 4px; padding: 15px;">
+                    <h3 style="margin-top: 0;">
+                        <span class="dashicons dashicons-chart-bar" style="margin-right: 5px;"></span>
+                        Advanced Analytics
+                    </h3>
+                    <p>Get detailed insights into quiz performance, user behavior, and score breakdowns.</p>
+                    <?php if (!$license_manager->is_feature_unlocked('advanced_analytics')): ?>
+                        <span class="qb-feature-locked" style="color: #d63638;"><strong>🔒 Premium Feature</strong></span>
+                    <?php else: ?>
+                        <span class="qb-feature-unlocked" style="color: #00a32a;"><strong>✅ Unlocked</strong></span>
+                    <?php endif; ?>
+                </div>
+                
+                <div class="qb-feature-card" style="border: 1px solid #ddd; border-radius: 4px; padding: 15px;">
+                    <h3 style="margin-top: 0;">
+                        <span class="dashicons dashicons-admin-customizer" style="margin-right: 5px;"></span>
+                        Premium Templates
+                    </h3>
+                    <p>Access beautifully designed quiz templates and layouts for better user experience.</p>
+                    <?php if (!$license_manager->is_feature_unlocked('premium_templates')): ?>
+                        <span class="qb-feature-locked" style="color: #d63638;"><strong>🔒 Premium Feature</strong></span>
+                    <?php else: ?>
+                        <span class="qb-feature-unlocked" style="color: #00a32a;"><strong>✅ Unlocked</strong></span>
+                    <?php endif; ?>
+                </div>
+                
+                <div class="qb-feature-card" style="border: 1px solid #ddd; border-radius: 4px; padding: 15px;">
+                    <h3 style="margin-top: 0;">
+                        <span class="dashicons dashicons-art" style="margin-right: 5px;"></span>
+                        Custom Branding
+                    </h3>
+                    <p>Remove "Powered by Quiz Builder" and add your own branding to quizzes.</p>
+                    <?php if (!$license_manager->is_feature_unlocked('custom_branding')): ?>
+                        <span class="qb-feature-locked" style="color: #d63638;"><strong>🔒 Premium Feature</strong></span>
+                    <?php else: ?>
+                        <span class="qb-feature-unlocked" style="color: #00a32a;"><strong>✅ Unlocked</strong></span>
+                    <?php endif; ?>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const licenseForm = document.getElementById('qb-license-form');
+        const licenseMessage = document.getElementById('qb-license-message');
+        const licenseSpinner = document.getElementById('qb-license-spinner');
+        const deactivateBtn = document.getElementById('qb-deactivate-license');
+        
+        // Handle license activation
+        if (licenseForm) {
+            licenseForm.addEventListener('submit', function(e) {
+                e.preventDefault();
+                
+                const licenseKey = document.getElementById('license_key').value.trim();
+                if (!licenseKey) {
+                    showMessage('Please enter a license key', 'error');
+                    return;
+                }
+                
+                licenseSpinner.classList.add('is-active');
+                
+                fetch(ajaxurl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                    },
+                    body: new URLSearchParams({
+                        action: 'qb_validate_license',
+                        license_key: licenseKey,
+                        nonce: <?php echo wp_json_encode(wp_create_nonce('qb_license_nonce')); ?>
+                    })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    licenseSpinner.classList.remove('is-active');
+                    
+                    if (data.success) {
+                        showMessage(data.message, 'success');
+                        setTimeout(() => {
+                            location.reload();
+                        }, 2000);
+                    } else {
+                        showMessage(data.message, 'error');
+                    }
+                })
+                .catch(error => {
+                    licenseSpinner.classList.remove('is-active');
+                    showMessage('Error connecting to license server', 'error');
+                });
+            });
+        }
+        
+        // Handle license deactivation
+        if (deactivateBtn) {
+            deactivateBtn.addEventListener('click', function() {
+                if (!confirm('Are you sure you want to deactivate your license?')) {
+                    return;
+                }
+                
+                fetch(ajaxurl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                    },
+                    body: new URLSearchParams({
+                        action: 'qb_deactivate_license',
+                        nonce: <?php echo wp_json_encode(wp_create_nonce('qb_license_nonce')); ?>
+                    })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        location.reload();
+                    } else {
+                        alert('Error deactivating license');
+                    }
+                });
+            });
+        }
+        
+        function showMessage(message, type) {
+            licenseMessage.innerHTML = `<div class="notice notice-${type} is-dismissible"><p>${message}</p></div>`;
+        }
+    });
+    </script>
+    <?php
+}
+
+/**
+ * Helper functions for feature locking
+ */
+
+/**
+ * Check if a feature is unlocked
+ * @param string $feature_name Feature name (e.g., 'advanced_analytics', 'premium_templates', 'custom_branding')
+ * @return bool
+ */
+function qb_is_feature_unlocked($feature_name) {
+    require_once(plugin_dir_path(dirname(__FILE__)) . 'includes/class-license-manager.php');
+    return QB_License_Manager::get_instance()->is_feature_unlocked($feature_name);
+}
+
+/**
+ * Check if premium is active
+ * @return bool
+ */
+function qb_is_premium_active() {
+    require_once(plugin_dir_path(dirname(__FILE__)) . 'includes/class-license-manager.php');
+    return QB_License_Manager::is_premium_active();
+}
+
+/**
+ * Display premium feature notice
+ * @param string $feature_name Feature name
+ * @param string $message Custom message (optional)
+ */
+function qb_show_premium_notice($feature_name = '', $message = '') {
+    require_once(plugin_dir_path(dirname(__FILE__)) . 'includes/class-license-manager.php');
+    QB_License_Manager::premium_feature_notice($feature_name, $message);
+}
+
+/**
+ * Lock a feature - displays premium notice if not unlocked
+ * @param string $feature_name Feature name to check
+ * @param string $message Custom message (optional)
+ * @return bool True if feature is unlocked, false if locked
+ */
+function qb_lock_feature($feature_name, $message = '') {
+    if (!qb_is_feature_unlocked($feature_name)) {
+        qb_show_premium_notice($feature_name, $message);
+        return false;
+    }
+    return true;
+}
+
+/**
+ * Redirect to add-ons page for locked features
+ * @param string $feature_name Feature name
+ */
+function qb_redirect_to_addons($feature_name = '') {
+    if (!qb_is_feature_unlocked($feature_name)) {
+        $addon_url = admin_url('admin.php?page=qb-addons');
+        wp_redirect($addon_url);
+        exit;
+    }
+}
+
+/**
+ * Example usage for locking a settings feature
+ */
+function qb_show_sub_score_calculations_setting() {
+    // Check if feature is unlocked
+    if (!qb_lock_feature('advanced_analytics', 'Sub-score calculations require a premium license.')) {
+        return; // Feature is locked, notice is shown
+    }
+    
+    // Feature is unlocked, show the actual setting
+    ?>
+    <tr>
+        <th scope="row">Show Sub-score Calculations</th>
+        <td>
+            <label>
+                <input type="checkbox" name="qb_show_sub_score_calculations" value="1" <?php checked(get_option('qb_show_sub_score_calculations', 0)); ?>>
+                Display category-based scoring breakdown in quiz results. Shows individual scores for each question category used in the quiz.
+            </label>
+        </td>
+    </tr>
     <?php
 }
