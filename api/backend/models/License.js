@@ -35,7 +35,27 @@ const License = sequelize.define('License', {
   siteUrl: {
     type: DataTypes.STRING(255),
     allowNull: true
-  }
+  },
+  wpVersion: {
+    type: DataTypes.STRING(255),
+    allowNull: true
+  },
+  siteName: {
+    type: DataTypes.STRING(255),
+    allowNull: true
+  },
+  phpVersion: {
+    type: DataTypes.STRING(255),
+    allowNull: true
+  },
+  userAgent: {
+    type: DataTypes.STRING(255),
+    allowNull: true
+  },
+  ipAddress: {
+    type: DataTypes.STRING(255),
+    allowNull: true
+  },
 }, {
   tableName: 'licenses',
   timestamps: true, // This adds createdAt and updatedAt
@@ -72,6 +92,11 @@ License.prototype.validateLicense = async function() {
   
   // Update validation tracking
   this.lastValidated = new Date();
+
+//   if(this.validationCount > 1){
+//     return { valid: false, message: 'License is already activated once' };
+//   }
+
   this.validationCount += 1;
   await this.save();
   
