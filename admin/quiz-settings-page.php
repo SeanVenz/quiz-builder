@@ -105,21 +105,43 @@ function qb_quiz_settings_page() {
                             <input type="checkbox" name="randomize_questions" id="randomize_questions" value="1">
                             <p class="description">Randomize the order of questions each time the quiz is taken.</p>
                         </td>
-                    </tr>                    
-                    <tr>
+                    </tr>                      <tr>
                         <th><label for="randomize_answers">Randomize Answer Options</label></th>
                         <td>
                             <input type="checkbox" name="randomize_answers" id="randomize_answers" value="1">
                             <p class="description">Randomize the order of answer options for each question.</p>
                         </td>
                     </tr>
-                    <tr>
-                        <th><label for="show_category_scores">Show Sub-score Calculations</label></th>
-                        <td>
-                            <input type="checkbox" name="show_category_scores" id="show_category_scores" value="1">
-                            <p class="description">Display category-based scoring breakdown in quiz results. Shows individual scores for each question category used in the quiz.</p>
-                        </td>
-                    </tr>
+                    
+                    <?php
+                    // Show premium feature - Sub-score Calculations
+                    if (function_exists('qb_lock_feature')) {
+                        if (qb_lock_feature('advanced_analytics', 'Sub-score calculations require a premium license to unlock advanced analytics features.')) {
+                            // Feature is unlocked, show the setting
+                            ?>
+                            <tr>
+                                <th><label for="show_category_scores">Show Sub-score Calculations</label></th>
+                                <td>
+                                    <input type="checkbox" name="show_category_scores" id="show_category_scores" value="1">
+                                    <p class="description">Display category-based scoring breakdown in quiz results. Shows individual scores for each question category used in the quiz.</p>
+                                </td>
+                            </tr>
+                            <?php
+                        }
+                        // If feature is locked, qb_lock_feature() will display the premium notice
+                    } else {
+                        // Fallback for when license manager is not loaded
+                        ?>
+                        <tr>
+                            <th><label for="show_category_scores">Show Sub-score Calculations</label></th>
+                            <td>
+                                <input type="checkbox" name="show_category_scores" id="show_category_scores" value="1">
+                                <p class="description">Display category-based scoring breakdown in quiz results. Shows individual scores for each question category used in the quiz.</p>
+                            </td>
+                        </tr>
+                        <?php
+                    }
+                    ?>
                 </table>
                 <?php submit_button('Save Settings', 'primary', 'qb_save_settings'); ?>
             </form>
