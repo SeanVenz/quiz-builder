@@ -10,7 +10,7 @@ if (!defined('ABSPATH')) {
 class QB_License_Manager {
     
     private static $instance = null;
-    private $api_url = 'http://localhost:3000/api'; // Change this to your API URL
+    private $api_url = 'http://localhost:3000/api'; 
     
     public static function get_instance() {
         if (null === self::$instance) {
@@ -35,10 +35,17 @@ class QB_License_Manager {
                 'message' => 'License key is required'
             );
         }
-        
-        // Make API call to validate license
+          // Make API call to validate license
         $response = wp_remote_post($this->api_url . '/licenses/validate', array(
-            'body' => json_encode(array('licenseKey' => $license_key)),
+            'body' => json_encode(array(
+                'licenseKey' => $license_key,
+                'siteUrl' => home_url(),
+                'siteName' => get_bloginfo('name'),
+                'wpVersion' => get_bloginfo('version'),
+                'phpVersion' => PHP_VERSION,
+                'userAgent' => isset($_SERVER['HTTP_USER_AGENT']) ? $_SERVER['HTTP_USER_AGENT'] : '',
+                'ipAddress' => isset($_SERVER['REMOTE_ADDR']) ? $_SERVER['REMOTE_ADDR'] : ''
+            )),
             'headers' => array(
                 'Content-Type' => 'application/json',
             ),
