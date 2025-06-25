@@ -159,6 +159,24 @@
                 </div>
                 <button type="button" id="copy-php" class="copy-button">📋 Copy PHP Code</button>
             </div>
+
+            <div class="results-section">
+                <h3>📊 How to Display Results</h3>
+                <p style="margin-bottom: 15px; opacity: 0.9;">Create a separate page named "Quiz Results" to show quiz completion results:</p>
+                
+                <h4 style="margin-bottom: 10px;">For WordPress Gutenberg Editor:</h4>
+                <div class="shortcode-display">
+                    <span id="results-shortcode">[quiz_results]</span>
+                </div>
+                <button type="button" id="copy-results-shortcode" class="copy-button">📋 Copy Results Shortcode</button>
+                
+                <h4 style="margin-top: 25px; margin-bottom: 10px;">For custom PHP themes:</h4>
+                <div class="php-example">
+                    <span id="results-php-code">&lt;?php echo do_shortcode('[quiz_results]'); ?&gt;</span>
+                </div>
+                <button type="button" id="copy-results-php" class="copy-button">📋 Copy Results PHP Code</button>
+                
+            </div>
               <div style="background: rgba(255,255,255,0.1); border-radius: 8px; padding: 20px; margin: 20px 0; backdrop-filter: blur(10px);">
                 <h3 style="color: #fff; margin-top: 0;">💡 Pro Tips for Success</h3>
                 <div style="margin-bottom: 15px; line-height: 1.6;">

@@ -389,6 +389,36 @@ jQuery(document).ready(function($) {
         }
     });
 
+    // Copy results shortcode functionality
+    $('#copy-results-shortcode').click(function() {
+        const resultsShortcodeText = $('#results-shortcode').text();
+        
+        if (navigator.clipboard && window.isSecureContext) {
+            navigator.clipboard.writeText(resultsShortcodeText).then(function() {
+                showCopySuccess('#copy-results-shortcode', 'Copied!');
+            }).catch(function() {
+                fallbackCopyTextToClipboard(resultsShortcodeText, '#copy-results-shortcode');
+            });
+        } else {
+            fallbackCopyTextToClipboard(resultsShortcodeText, '#copy-results-shortcode');
+        }
+    });
+
+    // Copy results PHP code functionality
+    $('#copy-results-php').click(function() {
+        const resultsPhpText = $('#results-php-code').text();
+        
+        if (navigator.clipboard && window.isSecureContext) {
+            navigator.clipboard.writeText(resultsPhpText).then(function() {
+                showCopySuccess('#copy-results-php', 'Copied!');
+            }).catch(function() {
+                fallbackCopyTextToClipboard(resultsPhpText, '#copy-results-php');
+            });
+        } else {
+            fallbackCopyTextToClipboard(resultsPhpText, '#copy-results-php');
+        }
+    });
+
     // Fallback copy method for older browsers
     function fallbackCopyTextToClipboard(text, buttonSelector) {
         const textArea = document.createElement("textarea");
