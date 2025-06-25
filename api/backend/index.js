@@ -12,6 +12,7 @@ const cookieParser = require('cookie-parser');
 
 // Import routes
 const licenseRoutes = require('./routes/licenseRoutes');
+const userRoute = require('./routes/userRoute')
 
 app.use(express.json());
 app.use(cookieParser());
@@ -22,6 +23,7 @@ app.use(cors({
 
 // Setup routes
 app.use('/api/licenses', licenseRoutes);
+app.use('/api/users', userRoute);
 
 require('./database/dbFunctions');
 
