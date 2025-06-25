@@ -18,6 +18,7 @@ define('QB_VERSION', '1.0.0');
 
 // Include dependencies
 require_once QB_PATH . 'includes/db-functions.php';
+require_once QB_PATH . 'includes/class-license-manager.php';
 require_once QB_PATH . 'admin/quiz-admin-page.php';
 require_once QB_PATH . 'admin/manage-questions-page.php';
 require_once QB_PATH . 'admin/quiz-settings-page.php';
@@ -645,6 +646,17 @@ function qb_get_quiz_settings() {
 function qb_admin_enqueue_scripts($hook) {
     // ... existing code ...
 }
+
+/**
+ * Enqueue admin styles for premium features
+ */
+function qb_enqueue_admin_styles($hook) {
+    // Only load on our plugin pages
+    if (strpos($hook, 'quiz-builder') !== false || strpos($hook, 'qb-') !== false) {
+        wp_enqueue_style('qb-premium-styles', QB_URL . 'assets/css/premium-styles.css', array(), QB_VERSION);
+    }
+}
+add_action('admin_enqueue_scripts', 'qb_enqueue_admin_styles');
 
 // Add AJAX handlers for quiz answers
 add_action('wp_ajax_qb_save_quiz_answers', 'qb_save_quiz_answers');
