@@ -31,6 +31,9 @@ function qb_register_shortcodes() {
 function qb_display_quiz($atts) {
     global $wpdb;
 
+    // Enqueue jQuery for form handling
+    wp_enqueue_script('jquery');
+
     $atts = shortcode_atts([
         'quiz_id' => 0,
     ], $atts, 'quiz_builder');

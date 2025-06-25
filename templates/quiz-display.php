@@ -19,7 +19,11 @@ function qb_get_quiz_display($quiz, $questions, $options, $settings) {
     }
 
     // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Nonce field is output for form security.
-    $output .= '<form method="post" class="quiz-form" id="quiz-form-' . esc_attr($quiz->id) . '">';
+    $current_url = get_permalink();
+    if (!$current_url) {
+        $current_url = home_url($_SERVER['REQUEST_URI']);
+    }
+    $output .= '<form method="post" action="' . esc_url($current_url) . '" class="quiz-form" id="quiz-form-' . esc_attr($quiz->id) . '">';
     // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Nonce field is output for form security.
     $output .= wp_nonce_field('qb_quiz_submission', 'qb_quiz_nonce', true, false);
     $output .= '<input type="hidden" name="action" value="qb_handle_quiz_submission">';
@@ -219,13 +223,119 @@ function qb_get_quiz_display($quiz, $questions, $options, $settings) {
                 // Clear localStorage after adding answers to form
                 localStorage.removeItem(storageKey);
                 
-                // Submit the form programmatically
-                $(".quiz-form")[0].submit();
-            });            // Keep the form submit handler as a backup, but it should rarely be used now
+                // Change the button type to submit and then trigger the form submission
+                var $form = $(".quiz-form");
+                var $submitButton = $(this);
+                
+                // Disable the button to prevent double submission
+                $submitButton.prop("disabled", true).text("Submitting...");
+                
+                // Try multiple submission methods for better compatibility
+                var submissionMethods = [
+                    // Method 1: Create temporary submit button
+                    function() {
+                        console.log("Trying method 1: temporary submit button");
+                        var $tempSubmit = $("<input>")
+                            .attr("type", "submit")
+                            .attr("name", "quiz_submit")
+                            .attr("value", "Submit")
+                            .hide()
+                            .appendTo($form);
+                        
+                        setTimeout(function() {
+                            $tempSubmit[0].click();
+                        }, 100);
+                    },
+                    
+                    // Method 2: Direct form submission
+                    function() {
+                        console.log("Trying method 2: direct form submission");
+                        setTimeout(function() {
+                            $form[0].submit();
+                        }, 500);
+                    },
+                    
+                    // Method 3: AJAX fallback
+                    function() {
+                        console.log("Trying method 3: AJAX fallback");
+                        setTimeout(function() {
+                            submitViaAjax($form);
+                        }, 1000);
+                    }
+                ];
+                
+                // Try the first method
+                submissionMethods[0]();
+                
+                // Set up fallbacks
+                setTimeout(function() {
+                    if ($submitButton.prop("disabled")) {
+                        console.log("First method may have failed, trying second method");
+                        submissionMethods[1]();
+                    }
+                }, 600);
+                
+                setTimeout(function() {
+                    if ($submitButton.prop("disabled")) {
+                        console.log("First two methods may have failed, trying AJAX");
+                        submissionMethods[2]();
+                    }
+                }, 1500);
+            });
+            
+            // AJAX submission function
+            function submitViaAjax($form) {
+                console.log("Submitting via AJAX");
+                
+                var formData = new FormData($form[0]);
+                formData.append("action", "qb_submit_quiz");
+                
+                $.ajax({
+                    url: "' . esc_js(admin_url('admin-ajax.php')) . '",
+                    type: "POST",
+                    data: formData,
+                    processData: false,
+                    contentType: false,
+                    success: function(response) {
+                        console.log("AJAX success:", response);
+                        if (response.success && response.data.redirect_url) {
+                            window.location.href = response.data.redirect_url;
+                        } else {
+                            console.error("AJAX submission failed:", response);
+                            $(".submit-button").prop("disabled", false).text("Submit Quiz");
+                            alert("There was an error submitting the quiz. Please try again.");
+                        }
+                    },
+                    error: function(xhr, status, error) {
+                        console.error("AJAX error:", error);
+                        $(".submit-button").prop("disabled", false).text("Submit Quiz");
+                        alert("There was an error submitting the quiz. Please try again.");
+                    }
+                });
+            }            // Keep the form submit handler as a backup, but it should rarely be used now
             $(".quiz-form").on("submit", function(e) {
-                console.log("Form submit event triggered (backup handler)");
-                // This should not normally run since we are using button click handlers now
-                // But keeping it as a safety net
+                console.log("Form submit event triggered");
+                
+                // If this is triggered by our temporary submit button, allow it
+                if ($(this).find("input[name=\"quiz_submit\"]").length > 0) {
+                    console.log("Form submission approved - has temp submit button");
+                    return true;
+                }
+                
+                // Otherwise prevent default and use our validation
+                e.preventDefault();
+                console.log("Form submission intercepted, using validation logic");
+                
+                if (!validateCurrentPage()) {
+                    console.log("Validation failed in form submit handler");
+                    return false;
+                }
+                
+                // Add saved answers and allow submission
+                addSavedAnswersToForm($(this));
+                localStorage.removeItem(storageKey);
+                
+                // Re-trigger the submit
                 return true;
             });
             

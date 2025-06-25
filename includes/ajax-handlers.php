@@ -14,6 +14,8 @@ add_action('wp_ajax_qb_get_quiz_answers', 'qb_get_quiz_answers');
 add_action('wp_ajax_nopriv_qb_get_quiz_answers', 'qb_get_quiz_answers');
 add_action('wp_ajax_qb_clear_quiz_answers', 'qb_clear_quiz_answers');
 add_action('wp_ajax_nopriv_qb_clear_quiz_answers', 'qb_clear_quiz_answers');
+add_action('wp_ajax_qb_submit_quiz', 'qb_ajax_submit_quiz');
+add_action('wp_ajax_nopriv_qb_submit_quiz', 'qb_ajax_submit_quiz');
 
 // Admin AJAX handlers
 add_action('wp_ajax_qb_get_attempt_details', 'qb_get_attempt_details');
@@ -443,4 +445,34 @@ function qb_onboarding_add_all_options() {
     }
     
     wp_send_json_success(['message' => 'Options added successfully', 'total_options' => $total_options_added]);
+}
+
+/**
+ * AJAX handler for quiz submission (fallback for block editor)
+ */
+function qb_ajax_submit_quiz() {
+    // Verify nonce
+    $nonce = isset($_POST['qb_quiz_nonce']) ? sanitize_text_field(wp_unslash($_POST['qb_quiz_nonce'])) : '';
+    if (empty($nonce) || !wp_verify_nonce($nonce, 'qb_quiz_submission')) {
+        wp_send_json_error('Invalid nonce');
+    }
+
+    if (!isset($_POST['quiz_id'])) {
+        wp_send_json_error('Missing quiz ID');
+    }
+
+    // Include the shortcodes frontend file for processing
+    require_once QB_PATH . 'includes/shortcodes-frontend.php';
+    
+    // Set up the POST data for processing
+    $_POST['action'] = 'qb_handle_quiz_submission';
+    
+    // Process quiz submission
+    $result = qb_process_quiz_submission();
+    
+    if ($result['success']) {
+        wp_send_json_success($result['data']);
+    } else {
+        wp_send_json_error($result['message']);
+    }
 }
