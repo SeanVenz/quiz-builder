@@ -118,8 +118,16 @@ jQuery(document).ready(function($) {
             return;
         }
 
+        // Validate we have questions before sending
         if (questions.length === 0) {
             alert('Please add at least one question');
+            return;
+        }
+
+        // Validate each question is not empty
+        const validQuestions = questions.filter(q => q && q.trim().length > 0);
+        if (validQuestions.length === 0) {
+            alert('Please add at least one valid question');
             return;
         }
 

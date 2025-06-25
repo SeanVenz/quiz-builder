@@ -254,20 +254,43 @@ function qb_onboarding_add_questions() {
 
     if (!current_user_can('manage_options')) {
         wp_send_json_error('Unauthorized');
-    }    $quiz_id = isset($_POST['quiz_id']) ? intval($_POST['quiz_id']) : 0;
+    }
+
+    $quiz_id = isset($_POST['quiz_id']) ? intval($_POST['quiz_id']) : 0;
     
-    // Sanitize JSON input properly
-    $questions_json = isset($_POST['questions']) ? sanitize_textarea_field(wp_unslash($_POST['questions'])) : '';
-    $raw_questions = !empty($questions_json) ? json_decode($questions_json, true) : array();
-    
-    if (empty($raw_questions) || !is_array($raw_questions)) {
-        wp_send_json_error('Questions are required');
+    if (empty($quiz_id)) {
+        wp_send_json_error('Quiz ID is required');
     }
     
-    // Sanitize each question
+    // Handle questions data - could be array or JSON string
     $questions = array();
-    foreach ($raw_questions as $question) {
-        $questions[] = sanitize_text_field($question);
+    
+    if (isset($_POST['questions'])) {
+        // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized,WordPress.Security.ValidatedSanitizedInput.InputNotUnslashed, WordPress.Security.ValidatedSanitizedInput.MissingUnslash -- Will be unslashed and sanitized below
+        $raw_questions_data = $_POST['questions'];
+        
+        if (is_array($raw_questions_data)) {
+            // Direct array - first unslash, then sanitize each element
+            $unslashed_questions = wp_unslash($raw_questions_data);
+            $questions = array_map('sanitize_text_field', $unslashed_questions);
+        } else {
+            // JSON string
+            $questions_json = sanitize_textarea_field(wp_unslash($raw_questions_data));
+            $decoded_questions = !empty($questions_json) ? json_decode($questions_json, true) : array();
+            
+            if (is_array($decoded_questions)) {
+                $questions = array_map('sanitize_text_field', $decoded_questions);
+            }
+        }
+    }
+    
+    // Filter out empty questions
+    $questions = array_filter($questions, function($question) {
+        return !empty(trim($question));
+    });
+    
+    if (empty($questions)) {
+        wp_send_json_error('At least one question is required');
     }
 
     global $wpdb;
@@ -346,30 +369,51 @@ function qb_onboarding_add_all_options() {
     check_ajax_referer('qb_onboarding_quiz', 'nonce');
 
     if (!current_user_can('manage_options')) {
-        wp_send_json_error('Unauthorized');    }
+        wp_send_json_error('Unauthorized');
+    }
 
-    // Sanitize JSON input properly
-    $question_options_json = isset($_POST['question_options']) ? sanitize_textarea_field(wp_unslash($_POST['question_options'])) : '';
-    $raw_question_options = !empty($question_options_json) ? json_decode($question_options_json, true) : array();
+    // Handle question options data - could be array or JSON string
+    $question_options = array();
+    
+    if (isset($_POST['question_options'])) {
+        if (is_array($_POST['question_options'])) {
+            // Direct array from JavaScript - need to recursively unslash and sanitize
+            // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- Will be sanitized below after unslashing
+            $raw_question_options = wp_unslash($_POST['question_options']);
+        } else {
+            // JSON string
+            $question_options_json = sanitize_textarea_field(wp_unslash($_POST['question_options']));
+            $raw_question_options = !empty($question_options_json) ? json_decode($question_options_json, true) : array();
+        }
+    } else {
+        $raw_question_options = array();
+    }
     
     if (empty($raw_question_options) || !is_array($raw_question_options)) {
         wp_send_json_error('Question options are required');
     }
     
     // Sanitize question_options
-    $question_options = array();
     foreach ($raw_question_options as $question_id => $options) {
         $question_id_int = intval($question_id);
         $sanitized_options = array();
         if (is_array($options)) {
             foreach ($options as $option) {
-                $sanitized_options[] = array(
-                    'text' => isset($option['text']) ? sanitize_text_field($option['text']) : '',
-                    'points' => isset($option['points']) ? intval($option['points']) : 0
-                );
+                if (is_array($option)) {
+                    $sanitized_options[] = array(
+                        'text' => isset($option['text']) ? sanitize_text_field($option['text']) : '',
+                        'points' => isset($option['points']) ? intval($option['points']) : 0
+                    );
+                }
             }
         }
-        $question_options[$question_id_int] = $sanitized_options;
+        if (!empty($sanitized_options)) {
+            $question_options[$question_id_int] = $sanitized_options;
+        }
+    }
+    
+    if (empty($question_options)) {
+        wp_send_json_error('No valid question options provided');
     }
 
     global $wpdb;
