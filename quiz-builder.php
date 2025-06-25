@@ -5,6 +5,8 @@
  * Version: 1.0.0
  * Author: Sean Venz Quijano
  * License: GPL2
+ * Text Domain: quiz-builder
+ * Domain Path: /languages
  */
 
 if (!defined('ABSPATH')) {
