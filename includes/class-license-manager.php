@@ -34,8 +34,7 @@ class QB_License_Manager {
                 'success' => false,
                 'message' => 'License key is required'
             );
-        }
-          // Make API call to validate license
+        }        // Make API call to validate license
         $response = wp_remote_post($this->api_url . '/licenses/validate', array(
             'body' => json_encode(array(
                 'licenseKey' => $license_key,
@@ -43,8 +42,8 @@ class QB_License_Manager {
                 'siteName' => get_bloginfo('name'),
                 'wpVersion' => get_bloginfo('version'),
                 'phpVersion' => PHP_VERSION,
-                'userAgent' => isset($_SERVER['HTTP_USER_AGENT']) ? $_SERVER['HTTP_USER_AGENT'] : '',
-                'ipAddress' => isset($_SERVER['REMOTE_ADDR']) ? $_SERVER['REMOTE_ADDR'] : ''
+                'userAgent' => isset($_SERVER['HTTP_USER_AGENT']) ? sanitize_text_field(wp_unslash($_SERVER['HTTP_USER_AGENT'])) : '',
+                'ipAddress' => isset($_SERVER['REMOTE_ADDR']) ? sanitize_text_field(wp_unslash($_SERVER['REMOTE_ADDR'])) : ''
             )),
             'headers' => array(
                 'Content-Type' => 'application/json',
@@ -127,12 +126,11 @@ class QB_License_Manager {
      * AJAX handler for license validation
      */
     public function ajax_validate_license() {
-        check_ajax_referer('qb_license_nonce', 'nonce');
-          if (!current_user_can('manage_options')) {
+        check_ajax_referer('qb_license_nonce', 'nonce');        if (!current_user_can('manage_options')) {
             wp_die('Unauthorized');
         }
         
-        $license_key = isset($_POST['license_key']) ? sanitize_text_field($_POST['license_key']) : '';
+        $license_key = isset($_POST['license_key']) ? sanitize_text_field(wp_unslash($_POST['license_key'])) : '';
         $result = $this->validate_license($license_key);
         
         wp_send_json($result);
