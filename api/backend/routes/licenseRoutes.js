@@ -6,17 +6,14 @@ const {
   getLicenseDetails,
   deactivateLicense
 } = require('../controllers/licenseController');
+const authenticateToken = require('../middleware/authMiddleware');
 
-// POST /api/licenses/generate - Generate a new license key
-router.post('/generate', generateLicense);
+router.post('/generate', authenticateToken, generateLicense);
 
-// POST /api/licenses/validate - Validate a license key (main endpoint for WordPress)
 router.post('/validate', validateLicense);
 
-// GET /api/licenses/:licenseKey - Get license details
-router.get('/:licenseKey', getLicenseDetails);
+router.get('/:licenseKey', authenticateToken, getLicenseDetails);
 
-// PUT /api/licenses/:licenseKey/deactivate - Deactivate a license
 router.put('/:licenseKey/deactivate', deactivateLicense);
 
 module.exports = router;
