@@ -21,7 +21,9 @@ function qb_get_quiz_display($quiz, $questions, $options, $settings) {
     // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Nonce field is output for form security.
     $current_url = get_permalink();
     if (!$current_url) {
-        $current_url = home_url($_SERVER['REQUEST_URI']);
+        // Safely get the current URL as fallback
+        $request_uri = isset($_SERVER['REQUEST_URI']) ? sanitize_text_field(wp_unslash($_SERVER['REQUEST_URI'])) : '';
+        $current_url = !empty($request_uri) ? home_url($request_uri) : home_url();
     }
     $output .= '<form method="post" action="' . esc_url($current_url) . '" class="quiz-form" id="quiz-form-' . esc_attr($quiz->id) . '">';
     // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Nonce field is output for form security.
