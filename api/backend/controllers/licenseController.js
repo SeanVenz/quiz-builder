@@ -4,10 +4,16 @@ const License = require('../models/License');
 const generateLicense = async (req, res) => {
   try {
     const licenseKey = License.generateLicenseKey();
-    
+    const {id} = req.user;
+
+    if(!id){
+      res.status(403).json({success:false, message: "User not authencticated"});
+    }
+
     const license = await License.create({
       licenseKey: licenseKey,
-      features: ['premium_templates', 'advanced_analytics', 'custom_branding']
+      features: ['premium_templates', 'advanced_analytics', 'custom_branding'],
+      userId: id
     });
 
     res.status(201).json({
