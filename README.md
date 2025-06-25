@@ -1,5 +1,5 @@
 === Quiz Builder ===
-Contributors: seanvenz
+Contributors: pikocode
 Tags: quiz, assessment, results, pdf, education
 Requires at least: 6.2
 Tested up to: 6.8
