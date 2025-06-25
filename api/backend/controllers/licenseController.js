@@ -32,7 +32,7 @@ const generateLicense = async (req, res) => {
 // Validate a license key (this will be called from WordPress)
 const validateLicense = async (req, res) => {
   try {
-    const { licenseKey, siteUrl } = req.body;
+    const { licenseKey, siteUrl, siteName, wpVersion, phpVersion, userAgent, ipAddress } = req.body;
 
     if (!licenseKey) {
       return res.status(400).json({
@@ -61,21 +61,34 @@ const validateLicense = async (req, res) => {
         success: false,
         message: validationResult.message
       });
-    }
-
-    // Optional: Update site URL if provided
-    if (siteUrl && license.siteUrl !== siteUrl) {
-      license.siteUrl = siteUrl;
-      await license.save();
-    }
-
-    res.json({
+    }    // Update license record with current site information
+    const updates = {};
+    
+    if (siteUrl) updates.siteUrl = siteUrl;
+    if (siteName) updates.siteName = siteName;
+    if (wpVersion) updates.wpVersion = wpVersion;
+    if (phpVersion) updates.phpVersion = phpVersion;
+    if (userAgent) updates.userAgent = userAgent;
+    if (ipAddress) updates.ipAddress = ipAddress;
+    
+    // Update the license record if we have any updates
+    if (Object.keys(updates).length > 0) {
+      await license.update(updates);
+    }    res.json({
       success: true,
       message: 'License is valid',
       data: {
         features: validationResult.features,
         validationCount: license.validationCount,
-        lastValidated: license.lastValidated
+        lastValidated: license.lastValidated,
+        siteInfo: {
+          siteUrl: license.siteUrl,
+          siteName: license.siteName,
+          wpVersion: license.wpVersion,
+          phpVersion: license.phpVersion,
+          userAgent: license.userAgent,
+          ipAddress: license.ipAddress
+        }
       }
     });
 
@@ -96,7 +109,7 @@ const getLicenseDetails = async (req, res) => {
 
     const license = await License.findOne({
       where: { licenseKey: licenseKey },
-      attributes: ['licenseKey', 'isActive', 'features', 'validationCount', 'lastValidated', 'siteUrl', 'createdAt']
+      attributes: ['licenseKey', 'isActive', 'features', 'validationCount', 'lastValidated', 'siteUrl', 'createdAt' , 'wpVersion' , 'siteName' , 'phpVersion' , 'userAgent' , 'ipAddress']
     });
 
     if (!license) {
