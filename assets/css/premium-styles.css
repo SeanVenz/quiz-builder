@@ -1,0 +1,112 @@
+/* Quiz Builder Premium Notices */
+.qb-premium-notice {
+    background: #fff3cd;
+    border: 1px solid #ffeaa7;
+    border-radius: 4px;
+    padding: 15px;
+    margin: 15px 0;
+}
+
+.qb-premium-notice .dashicons {
+    color: #856404;
+    margin-right: 10px;
+    font-size: 20px;
+}
+
+.qb-premium-notice strong {
+    color: #856404;
+}
+
+.qb-premium-notice span {
+    color: #856404;
+}
+
+.qb-premium-notice .button {
+    margin-top: 10px;
+}
+
+/* License management styles */
+.qb-license-section {
+    background: #fff;
+    padding: 20px;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    margin: 20px 0;
+}
+
+.qb-license-active {
+    background: #d1eddb;
+    border: 1px solid #00a32a;
+    border-radius: 4px;
+    padding: 15px;
+    margin: 15px 0;
+}
+
+.qb-license-active .dashicons {
+    color: #00a32a;
+    margin-right: 10px;
+    font-size: 20px;
+}
+
+.qb-license-active strong,
+.qb-license-active span {
+    color: #00a32a;
+}
+
+.qb-premium-features {
+    background: #fff;
+    padding: 20px;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    margin: 20px 0;
+}
+
+.qb-features-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 20px;
+}
+
+.qb-feature-card {
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    padding: 15px;
+}
+
+.qb-feature-card h3 {
+    margin-top: 0;
+}
+
+.qb-feature-locked {
+    color: #d63638;
+}
+
+.qb-feature-unlocked {
+    color: #00a32a;
+}
+
+/* Stats grid */
+.qb-stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 20px;
+    margin: 20px 0;
+}
+
+.qb-stat-card {
+    background: #fff;
+    padding: 20px;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+}
+
+.qb-stat-card h3 {
+    margin: 0 0 10px 0;
+    color: #666;
+}
+
+.qb-stat-card p {
+    font-size: 24px;
+    font-weight: bold;
+    margin: 0;
+}
