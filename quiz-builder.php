@@ -18,8 +18,6 @@ define('QB_VERSION', '1.0.0');
 
 // Include dependencies
 require_once QB_PATH . 'includes/db-functions.php';
-require_once QB_PATH . 'includes/class-license-manager.php';
-require_once QB_PATH . 'includes/pdf-export.php';
 require_once QB_PATH . 'includes/ajax-handlers.php';
 require_once QB_PATH . 'includes/shortcodes-frontend.php';
 require_once QB_PATH . 'admin/quiz-admin-page.php';
@@ -98,17 +96,6 @@ function qb_activate_plugin() {
 }
 
 /**
- * Enqueue admin styles for premium features
- */
-function qb_enqueue_admin_styles($hook) {
-    // Only load on our plugin pages
-    if (strpos($hook, 'quiz-builder') !== false || strpos($hook, 'qb-') !== false) {
-        wp_enqueue_style('qb-premium-styles', QB_URL . 'assets/css/premium-styles.css', array(), QB_VERSION);
-    }
-}
-add_action('admin_enqueue_scripts', 'qb_enqueue_admin_styles');
-
-/**
  * Enqueue frontend scripts and styles
  */
 function qb_enqueue_scripts() {
@@ -135,6 +122,7 @@ function qb_check_fresh_installation_redirect() {
     $onboarding_completed = get_option('qb_onboarding_completed', false);
     
     if ($should_redirect && !$onboarding_completed) {
+        // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- GET parameter check for admin page routing, not sensitive data processing
         $current_page = isset($_GET['page']) ? sanitize_text_field(wp_unslash($_GET['page'])) : '';
         if ($current_page !== 'qb-getting-started') {
             delete_option('qb_redirect_to_getting_started');
