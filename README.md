@@ -18,6 +18,8 @@ A comprehensive WordPress plugin for creating and managing quizzes with detailed
 - Track user attempts and scores
 - Detailed results display with user answers
 - Administrative interface for quiz management
+- **Quiz Results Page** - Dedicated results display with `[quiz_results]` shortcode
+- **Comprehensive Onboarding** - Step-by-step guide for creating both quizzes and results pages
 
 ### New: PDF Export Feature
 - **Allow PDF Export** setting for individual quizzes  
@@ -33,6 +35,33 @@ A comprehensive WordPress plugin for creating and managing quizzes with detailed
 
 ## Usage
 
+### Quick Setup with Onboarding
+1. Go to **Quiz Builder > Getting Started**
+2. Follow the 3-step onboarding process:
+   - **Step 1**: Create your quiz with title and description
+   - **Step 2**: Add engaging questions
+   - **Step 3**: Configure answer options and point values
+3. After completion, you'll receive both quiz and results display instructions
+
+### Displaying Your Quiz
+Use the shortcode provided after onboarding:
+```
+[quiz_builder quiz_id="1"]
+```
+
+### Displaying Quiz Results
+Create a separate "Quiz Results" page and use:
+
+**For Gutenberg Editor:**
+```
+[quiz_results]
+```
+
+**For Custom PHP Themes:**
+```php
+<?php echo do_shortcode('[quiz_results]'); ?>
+```
+
 ### For Administrators
 1. Go to **Quiz Builder > Quiz Settings**
 2. Select a quiz to configure
@@ -42,7 +71,7 @@ A comprehensive WordPress plugin for creating and managing quizzes with detailed
 
 ### For Users
 1. Complete a quiz
-2. View results page
+2. View results page (displays automatically or via dedicated results page)
 3. If enabled, click "📄 Download PDF Results" button
 4. Follow browser instructions to save as PDF
 
@@ -59,10 +88,12 @@ A comprehensive WordPress plugin for creating and managing quizzes with detailed
 - `templates/quiz-display.php` - Quiz rendering
 - `templates/quiz-results.php` - Results page
 - `templates/quiz-results-html.php` - Basic results template
+- `templates/onboarding.php` - Comprehensive setup wizard
 
 ### Assets
 - `assets/css/quiz-results.css` - Results styling
-- `assets/js/onboarding.js` - Admin interface scripts
+- `assets/css/onboarding.css` - Onboarding interface styling
+- `assets/js/onboarding.js` - Admin interface scripts and copy functionality
 
 ## Database Schema
 
@@ -70,6 +101,19 @@ The plugin creates/modifies these tables:
 - `wp_qb_quiz_settings` - Quiz configuration (includes `allow_pdf_export` column)
 - `wp_qb_quiz_attempts` - User quiz attempts
 - `wp_qb_quiz_answers` - Individual question answers
+
+## Shortcodes
+
+### `[quiz_builder quiz_id="X"]`
+Displays a specific quiz on any page or post.
+- `quiz_id` (required) - The ID of the quiz to display
+
+### `[quiz_results]`
+Displays quiz results for the most recent quiz attempt.
+- Automatically detects the current user's latest quiz completion
+- Shows detailed results including answers and scores
+- Can be placed on any page or post
+- Works with both registered and guest users
 
 ## Security Features
 
@@ -90,8 +134,11 @@ For issues or questions, check the WordPress debug logs and browser console for 
 
 ## Version History
 
-- **Latest**: Enhanced PDF export with browser-based generation
+- **Latest**: Enhanced onboarding with quiz results page setup
+- Enhanced PDF export with browser-based generation
 - Added "Allow PDF Export" quiz setting
+- Added comprehensive onboarding wizard
+- Added `[quiz_results]` shortcode for dedicated results pages
 - Improved security and user experience
 - Professional PDF formatting and styling
 
