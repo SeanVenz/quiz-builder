@@ -364,8 +364,12 @@ function qb_show_dashboard() {
     ?>
     <div class="wrap">
         <h1>Quiz Builder Dashboard</h1>
+        <div class="notice notice-info">
+            <p><strong>Tip: </strong>To display your quiz, paste this shortcode: [quiz_builder quiz_id="{id}"]. To Display the Results, create another page and paste this short code: [quiz_results]</p>
+        </div>
         
-        <!-- Statistics Cards -->        <div class="qb-stats-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin: 20px 0;">
+        <!-- Statistics Cards -->        
+        <div class="qb-stats-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin: 20px 0;">
             <div class="qb-stat-card" style="background: #fff; padding: 20px; border: 1px solid #ddd; border-radius: 5px;">
                 <h3 style="margin: 0 0 10px 0; color: #666;">Total Quizzes</h3>
                 <p style="font-size: 24px; font-weight: bold; margin: 0; color: #2271b1;"><?php echo esc_html($total_quizzes); ?></p>
@@ -401,6 +405,7 @@ function qb_show_dashboard() {
                 <table class="wp-list-table widefat fixed striped">
                     <thead>
                         <tr>
+                            <th>ID</th>
                             <th>Title</th>
                             <th>Description</th>
                             <th>Questions</th>
@@ -415,7 +420,9 @@ function qb_show_dashboard() {
                             // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching 
                             $question_count = $wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM %i WHERE quiz_id = %d", $questions_table, $quiz->id));
                             ?>
-                            <tr>                                <td><strong><?php echo esc_html($quiz->title); ?></strong></td>
+                            <tr>
+                                <td><strong><?php echo esc_html($quiz->id); ?></strong></td>                                
+                                <td><strong><?php echo esc_html($quiz->title); ?></strong></td>
                                 <td><?php echo esc_html(wp_trim_words($quiz->description, 10)); ?></td>
                                 <td><?php echo esc_html($question_count); ?></td>
                                 <td><?php echo esc_html(gmdate('M j, Y', strtotime($quiz->created_at))); ?></td><td>
