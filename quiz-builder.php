@@ -34,6 +34,9 @@ require_once QB_PATH . 'admin/onboarding.php';
 // Register activation hook
 register_activation_hook(__FILE__, 'qb_activate_plugin');
 
+// Register deactivation hook
+register_deactivation_hook(__FILE__, 'qb_deactivate_plugin');
+
 // Add update check
 add_action('plugins_loaded', 'qb_check_for_updates');
 
@@ -95,6 +98,21 @@ function qb_activate_plugin() {
     
     // Clear any cached data
     wp_cache_flush();
+    
+    // Flush rewrite rules to ensure custom URLs work
+    // This is crucial for quiz-results URLs to work properly
+    flush_rewrite_rules();
+    
+    // Create quiz-results page if it doesn't exist
+    qb_create_results_page_if_needed();
+}
+
+/**
+ * Plugin deactivation function
+ */
+function qb_deactivate_plugin() {
+    // Flush rewrite rules to clean up custom URLs
+    flush_rewrite_rules();
 }
 
 /**
@@ -130,6 +148,82 @@ function qb_check_fresh_installation_redirect() {
             delete_option('qb_redirect_to_getting_started');
             wp_safe_redirect(admin_url('admin.php?page=qb-getting-started'));
             exit;
+        }
+    }
+}
+
+/**
+ * Add admin notice for permalink flushing if needed
+ */
+add_action('admin_notices', 'qb_check_permalink_flush_notice');
+
+function qb_check_permalink_flush_notice() {
+    // Only show to administrators
+    if (!current_user_can('manage_options')) {
+        return;
+    }
+    
+    // Check if we're on a Quiz Builder page
+    $current_page = isset($_GET['page']) ? sanitize_text_field(wp_unslash($_GET['page'])) : '';
+    if (strpos($current_page, 'qb-') !== 0 && strpos($current_page, 'quiz-') !== 0) {
+        return;
+    }
+    
+    // Check if rewrite rules are properly set
+    $rules = get_option('rewrite_rules');
+    if (!$rules || !isset($rules['^quiz-results/([^/]+)/?$'])) {
+        echo '<div class="notice notice-warning is-dismissible">';
+        echo '<p><strong>Quiz Builder:</strong> If quiz results are not displaying correctly, please ';
+        echo '<a href="' . esc_url(admin_url('options-permalink.php')) . '">refresh your permalinks</a> ';
+        echo 'by going to Settings > Permalinks and clicking "Save Changes".</p>';
+        echo '</div>';
+    }
+}
+
+/**
+ * Add a manual flush function for troubleshooting
+ */
+add_action('wp_ajax_qb_flush_rewrite_rules', 'qb_manual_flush_rewrite_rules');
+
+function qb_manual_flush_rewrite_rules() {
+    // Check permissions
+    if (!current_user_can('manage_options')) {
+        wp_die('Unauthorized');
+    }
+    
+    // Check nonce
+    if (!wp_verify_nonce($_POST['nonce'], 'qb_flush_rules')) {
+        wp_die('Invalid nonce');
+    }
+    
+    // Flush rewrite rules
+    flush_rewrite_rules();
+    
+    wp_send_json_success('Rewrite rules flushed successfully!');
+}
+
+/**
+ * Create quiz-results page if it doesn't exist
+ */
+function qb_create_results_page_if_needed() {
+    $results_page = get_page_by_path('quiz-results');
+    
+    if (!$results_page) {
+        $page_content = '[quiz_results]';
+        
+        $page_data = array(
+            'post_title'    => 'Quiz Results',
+            'post_content'  => $page_content,
+            'post_status'   => 'publish',
+            'post_type'     => 'page',
+            'post_name'     => 'quiz-results'
+        );
+        
+        $page_id = wp_insert_post($page_data);
+        
+        if ($page_id && !is_wp_error($page_id)) {
+            // Page created successfully
+            update_option('qb_results_page_id', $page_id);
         }
     }
 }

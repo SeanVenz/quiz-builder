@@ -491,4 +491,16 @@ function qb_add_rewrite_rules() {
         'index.php?pagename=quiz-results&quiz_result_id=$matches[1]',
         'top'
     );
+    
+    // Check if rewrite rules need to be flushed
+    // This ensures rules are properly registered after plugin activation
+    $rules = get_option('rewrite_rules');
+    if (!$rules || !isset($rules['^quiz-results/([^/]+)/?$'])) {
+        // Only flush if we're not already in the middle of an activation
+        if (!get_option('qb_flushing_rules', false)) {
+            update_option('qb_flushing_rules', true);
+            flush_rewrite_rules();
+            delete_option('qb_flushing_rules');
+        }
+    }
 }
