@@ -71,7 +71,7 @@ Create a separate "Quiz Results" page and use:
 
 ### For Users
 1. Complete a quiz
-2. View results page (displays automatically or via dedicated results page)
+2. View results page
 3. If enabled, click "📄 Download PDF Results" button
 4. Follow browser instructions to save as PDF
 

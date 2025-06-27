@@ -12,7 +12,8 @@ function qb_add_admin_menu()
         'Quiz Builder',
         'manage_options',
         'quiz-builder',
-        'qb_dashboard_page',        'dashicons-welcome-learn-more',
+        'qb_dashboard_page',        
+        'dashicons-welcome-learn-more',
         6
     );
     
