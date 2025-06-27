@@ -162,6 +162,7 @@ function qb_check_permalink_flush_notice() {
     }
     
     // Check if we're on a Quiz Builder page
+    // phpcs:ignore WordPress.Security.NonceVerification.Recommended
     $current_page = isset($_GET['page']) ? sanitize_text_field(wp_unslash($_GET['page'])) : '';
     if (strpos($current_page, 'qb-') !== 0 && strpos($current_page, 'quiz-') !== 0) {
         return;
@@ -190,7 +191,7 @@ function qb_manual_flush_rewrite_rules() {
     }
     
     // Check nonce
-    if (!wp_verify_nonce($_POST['nonce'], 'qb_flush_rules')) {
+    if (!isset($_POST['nonce']) || !wp_verify_nonce(sanitize_text_field(wp_unslash($_POST['nonce'])), 'qb_flush_rules')) {
         wp_die('Invalid nonce');
     }
     

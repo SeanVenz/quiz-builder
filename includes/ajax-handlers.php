@@ -10,10 +10,6 @@ if (!defined('ABSPATH')) {
 // Quiz submission handlers
 add_action('wp_ajax_qb_save_quiz_answers', 'qb_save_quiz_answers');
 add_action('wp_ajax_nopriv_qb_save_quiz_answers', 'qb_save_quiz_answers');
-add_action('wp_ajax_qb_get_quiz_answers', 'qb_get_quiz_answers');
-add_action('wp_ajax_nopriv_qb_get_quiz_answers', 'qb_get_quiz_answers');
-add_action('wp_ajax_qb_clear_quiz_answers', 'qb_clear_quiz_answers');
-add_action('wp_ajax_nopriv_qb_clear_quiz_answers', 'qb_clear_quiz_answers');
 add_action('wp_ajax_qb_submit_quiz', 'qb_ajax_submit_quiz');
 add_action('wp_ajax_nopriv_qb_submit_quiz', 'qb_ajax_submit_quiz');
 
