@@ -365,7 +365,7 @@ function qb_show_dashboard() {
     <div class="wrap">
         <h1>Quiz Builder Dashboard</h1>
         <div class="notice notice-info">
-            <p><strong>Tip: </strong>To display your quiz, paste this shortcode: [quiz_builder quiz_id="{id}"]. To Display the Results, create another page and paste this short code: [quiz_results]</p>
+            <p><strong>Tip: </strong>To display your quiz, paste this shortcode: <code>[quiz_builder quiz_id="{id}"]</code>. To display results, create a page called "Quiz Results" and add this shortcode: <code>[quiz_results]</code></p>
         </div>
         
         <!-- Statistics Cards -->        

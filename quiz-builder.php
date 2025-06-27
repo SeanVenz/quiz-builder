@@ -41,48 +41,46 @@ register_deactivation_hook(__FILE__, 'qb_deactivate_plugin');
 add_action('plugins_loaded', 'qb_check_for_updates');
 
 /**
- * Check for plugin updates and run necessary updates
+ * Check for plugin updates and run necessary updates - gentler approach
  */
 function qb_check_for_updates() {
     $current_version = get_option('qb_version', '0');
     if (version_compare($current_version, QB_VERSION, '<')) {
         qb_create_database_tables();
         
-        // Update settings table
+        // Update settings table - gentler approach
         require_once plugin_dir_path(__FILE__) . 'includes/db/class-quiz-settings-db.php';
         $settings_db = new QB_Quiz_Settings_DB();
-        $settings_db->update_table();
+        if (!$settings_db->table_exists()) {
+            $settings_db->update_table();
+        }
         
-        // Create or update categories table
+        // Create or update categories table - gentler approach
         require_once plugin_dir_path(__FILE__) . 'includes/db/class-categories-db.php';
         $categories_db = new QB_Categories_DB();
-        $categories_db->create_table();
+        if (!$categories_db->table_exists()) {
+            $categories_db->create_table();
+        }
         
         update_option('qb_version', QB_VERSION);
     }
 }
 
 /**
- * Plugin activation function
+ * Plugin activation function - gentler database handling
  */
 function qb_activate_plugin() {
-    // Create base tables first
+    // Create base tables if they don't exist
     qb_create_database_tables();
     
-    // Create or update settings table
+    // Create or update settings table - gentler approach
     require_once plugin_dir_path(__FILE__) . 'includes/db/class-quiz-settings-db.php';
     $settings_db = new QB_Quiz_Settings_DB();
     
-    // Force table recreation
-    global $wpdb;
-    $table_name = $wpdb->prefix . 'qb_quiz_settings';
-    // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange, WordPress.DB.PreparedSQL.InterpolatedNotPrepared 
-    $wpdb->query("DROP TABLE IF EXISTS $table_name");
-    
-    // Create fresh table
+    // Only create table if it doesn't exist (no forced recreation)
     $settings_db->update_table();
     
-    // Create or update categories table
+    // Create or update categories table - gentler approach
     require_once plugin_dir_path(__FILE__) . 'includes/db/class-categories-db.php';
     $categories_db = new QB_Categories_DB();
     $categories_db->create_table();
@@ -102,9 +100,6 @@ function qb_activate_plugin() {
     // Flush rewrite rules to ensure custom URLs work
     // This is crucial for quiz-results URLs to work properly
     flush_rewrite_rules();
-    
-    // Create quiz-results page if it doesn't exist
-    qb_create_results_page_if_needed();
 }
 
 /**
@@ -113,6 +108,9 @@ function qb_activate_plugin() {
 function qb_deactivate_plugin() {
     // Flush rewrite rules to clean up custom URLs
     flush_rewrite_rules();
+    
+    // Clear any scheduled events
+    wp_clear_scheduled_hook('qb_cleanup_temp_data');
 }
 
 /**
@@ -200,30 +198,4 @@ function qb_manual_flush_rewrite_rules() {
     flush_rewrite_rules();
     
     wp_send_json_success('Rewrite rules flushed successfully!');
-}
-
-/**
- * Create quiz-results page if it doesn't exist
- */
-function qb_create_results_page_if_needed() {
-    $results_page = get_page_by_path('quiz-results');
-    
-    if (!$results_page) {
-        $page_content = '[quiz_results]';
-        
-        $page_data = array(
-            'post_title'    => 'Quiz Results',
-            'post_content'  => $page_content,
-            'post_status'   => 'publish',
-            'post_type'     => 'page',
-            'post_name'     => 'quiz-results'
-        );
-        
-        $page_id = wp_insert_post($page_data);
-        
-        if ($page_id && !is_wp_error($page_id)) {
-            // Page created successfully
-            update_option('qb_results_page_id', $page_id);
-        }
-    }
 }

@@ -464,8 +464,10 @@ function qb_clear_quiz_session_after_completion($quiz_id) {
 function qb_get_results_redirect_url($random_id) {
     $results_page = get_page_by_path('quiz-results');
     if ($results_page) {
-        return get_permalink($results_page) . $random_id . '/';
+        // Use query parameter approach for more reliable results
+        return add_query_arg('quiz_result_id', $random_id, get_permalink($results_page));
     } else {
+        // Fallback to rewrite rule format if no page exists
         return home_url('/quiz-results/' . $random_id . '/');
     }
 }
