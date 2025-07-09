@@ -12,6 +12,16 @@ class QB_Quiz_Settings_DB {
     }
 
     /**
+     * Check if table exists
+     */
+    public function table_exists() {
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared
+        $table_exists = $this->wpdb->get_var($this->wpdb->prepare("SHOW TABLES LIKE %s", $this->table_name ));
+        
+        return $table_exists === $this->table_name;
+    }
+
+    /**
      * Create or update the settings table
      */
     public function update_table() {

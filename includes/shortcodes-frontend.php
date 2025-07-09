@@ -31,6 +31,9 @@ function qb_register_shortcodes() {
 function qb_display_quiz($atts) {
     global $wpdb;
 
+    // Enqueue jQuery for form handling
+    wp_enqueue_script('jquery');
+
     $atts = shortcode_atts([
         'quiz_id' => 0,
     ], $atts, 'quiz_builder');
@@ -461,8 +464,10 @@ function qb_clear_quiz_session_after_completion($quiz_id) {
 function qb_get_results_redirect_url($random_id) {
     $results_page = get_page_by_path('quiz-results');
     if ($results_page) {
-        return get_permalink($results_page) . $random_id . '/';
+        // Use query parameter approach for more reliable results
+        return add_query_arg('quiz_result_id', $random_id, get_permalink($results_page));
     } else {
+        // Fallback to rewrite rule format if no page exists
         return home_url('/quiz-results/' . $random_id . '/');
     }
 }
@@ -488,4 +493,16 @@ function qb_add_rewrite_rules() {
         'index.php?pagename=quiz-results&quiz_result_id=$matches[1]',
         'top'
     );
+    
+    // Check if rewrite rules need to be flushed
+    // This ensures rules are properly registered after plugin activation
+    $rules = get_option('rewrite_rules');
+    if (!$rules || !isset($rules['^quiz-results/([^/]+)/?$'])) {
+        // Only flush if we're not already in the middle of an activation
+        if (!get_option('qb_flushing_rules', false)) {
+            update_option('qb_flushing_rules', true);
+            flush_rewrite_rules();
+            delete_option('qb_flushing_rules');
+        }
+    }
 }

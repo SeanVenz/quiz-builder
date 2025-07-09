@@ -142,6 +142,7 @@ function qb_manage_questions_page() {
     global $wpdb;    // Add required scripts and styles
     wp_enqueue_script('jquery-ui-sortable');
     wp_enqueue_style('jquery-ui', plugins_url('assets/css/jquery-ui.css', dirname(__FILE__, 2) . '/quiz-builder.php'), array(), '1.12.1');
+    wp_enqueue_style('qb-admin-styles', plugins_url('assets/css/admin-styles.css', dirname(__FILE__, 2) . '/quiz-builder.php'), array(), '1.0.0');
 
     $quiz_id = isset($_GET['quiz_id']) ? intval($_GET['quiz_id']) : 0;
 
@@ -335,8 +336,22 @@ function qb_manage_questions_page() {
                         $insert_data['category_id'] = $category_id;
                     }
                     // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery
-                    $wpdb->insert($questions_table, $insert_data);
-                    echo '<div class="updated notice"><p>Question added!</p></div>';
+                    $result = $wpdb->insert($questions_table, $insert_data);
+                    
+                    if ($result) {
+                        $success_message = 'Question added successfully!';
+                        if ($required) {
+                            $success_message .= ' (Required)';
+                        }
+                        if ($category_id) {
+                            $success_message .= ' (Categorized)';
+                        }
+                        echo '<div class="updated notice"><p>' . esc_html($success_message) . '</p></div>';
+                    } else {
+                        echo '<div class="error notice"><p>Error adding question. Please try again.</p></div>';
+                    }
+                } else {
+                    echo '<div class="error notice"><p>Please enter a question text.</p></div>';
                 }
                 break;            case 'edit_question':
                 $question_id = isset($_POST['question_id']) ? intval($_POST['question_id']) : 0;
@@ -568,13 +583,24 @@ function qb_manage_questions_page() {
                     <tr>
                         <th><label for="question_required">Required Question</label></th>
                         <td>
-                            <input type="checkbox" name="question_required" id="question_required" value="1">
-                            <p class="description">Check this box if users must answer this question to proceed/submit the quiz</p>
+                            <label>
+                                <input type="checkbox" name="question_required" id="question_required" value="1">
+                                Check this box if users must answer this question to proceed/submit the quiz
+                            </label>
+                            <p class="description"><strong>Note:</strong> This setting works independently of category selection.</p>
                         </td>
                     </tr>
                 </table>
                 <?php submit_button('Add Question', 'primary', 'submit', false); ?>
             </form>            <hr>
+
+            <!-- Toggle Required Form - Always present regardless of categories -->
+            <form method="post" id="toggle-required-form" style="display:none;">
+                <?php wp_nonce_field('qb_manage_questions'); ?>
+                <input type="hidden" name="action" value="toggle_required">
+                <input type="hidden" name="question_id" id="toggle-required-question-id">
+                <input type="hidden" name="required" id="toggle-required-status">
+            </form>
 
             <?php if (!empty($categories)): ?>
             <!-- Category Management Tools -->
@@ -627,18 +653,18 @@ function qb_manage_questions_page() {
                     <input type="hidden" name="action" value="remove_single_category">
                     <input type="hidden" name="question_id" id="remove-category-question-id">
                 </form>
-                
-                <form method="post" id="toggle-required-form" style="display:none;">
-                    <?php wp_nonce_field('qb_manage_questions'); ?>
-                    <input type="hidden" name="action" value="toggle_required">
-                    <input type="hidden" name="question_id" id="toggle-required-question-id">
-                    <input type="hidden" name="required" id="toggle-required-status">
-                </form>
             </div>
             <hr>
             <?php endif; ?>
             <!-- phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching                    -->
             <h2>Questions <span id="question-count"><?php echo count($questions); ?></span></h2>
+            
+            <?php if (empty($categories)): ?>
+            <div class="notice notice-info">
+                <p><strong>Tip:</strong> You can mark questions as required by using the "Required" checkbox next to each question, even without creating categories. Categories are optional for organizing questions.</p>
+            </div>
+            <?php endif; ?>
+            
             <div id="questions-list" class="sortable">
                 <!-- phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching                 -->
                 <?php if ($questions): ?>
@@ -1009,8 +1035,22 @@ function qb_manage_questions_page() {
             var questionId = $(this).data('question-id');
             var isRequired = $(this).is(':checked');
             
+            
+            if (!questionId) {
+                alert('Error: Could not update question status. Please refresh the page and try again.');
+                return;
+            }
+            
+            // Check if the form exists
+            if ($('#toggle-required-form').length === 0) {
+                alert('Error: Form not found. Please refresh the page and try again.');
+                return;
+            }
+            
             $('#toggle-required-question-id').val(questionId);
             $('#toggle-required-status').val(isRequired ? 'true' : 'false');
+            
+            
             $('#toggle-required-form').submit();
         });
 
@@ -1197,6 +1237,19 @@ function qb_manage_questions_page() {
 
         // Initialize question count
         $('#question-count').text($('.accordion').length);
+        
+        // Add visual feedback for required checkbox
+        $('#question_required').on('change', function() {
+            var isChecked = $(this).is(':checked');
+            var $description = $(this).closest('td').find('.description');
+            if (isChecked) {
+                $description.html('<strong>Note:</strong> This question will be marked as REQUIRED. Users must answer it to submit the quiz.');
+                $description.css('color', '#d63638');
+            } else {
+                $description.html('<strong>Note:</strong> This setting works independently of category selection.');
+                $description.css('color', '#646970');
+            }
+        });
     });
     </script>
     <?php

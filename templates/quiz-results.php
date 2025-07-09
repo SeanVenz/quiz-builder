@@ -156,7 +156,6 @@ function qb_get_quiz_results($quiz, $score, $total_possible_points, $user_answer
     }
 
     $output .= '<div style="margin-top: 20px; text-align: center;">';
-    $output .= '<a href="' . esc_url(add_query_arg('quiz_id', $quiz->id, home_url())) . '" class="button button-primary" style="display: inline-block; padding: 12px 24px; background-color: #0073aa; color: white; text-decoration: none; border-radius: 4px; font-weight: bold;">Retake Quiz</a>';
     $output .= '</div>';
     
     $output .= '</div>';

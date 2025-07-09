@@ -254,17 +254,4 @@ function qb_create_database_tables() {
     if (function_exists('qb_create_quiz_settings_table')) {
         qb_create_quiz_settings_table();
     }
-
-    // Create quiz results page if it doesn't exist
-    $results_page = get_page_by_path('quiz-results');
-    if (!$results_page) {
-        $page_data = array(
-            'post_title'    => 'Quiz Results',
-            'post_name'     => 'quiz-results',
-            'post_status'   => 'publish',
-            'post_type'     => 'page',
-            'post_content'  => '[quiz_results]'
-        );
-        wp_insert_post($page_data);
-    }
 }

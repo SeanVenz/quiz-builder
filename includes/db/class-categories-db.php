@@ -14,6 +14,16 @@ class QB_Categories_DB {
     }
 
     /**
+     * Check if table exists
+     */
+    public function table_exists() {
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared
+        $table_exists = $this->wpdb->get_var($this->wpdb->prepare( "SHOW TABLES LIKE %s", $this->table_name ));
+        
+        return $table_exists === $this->table_name;
+    }
+
+    /**
      * Create or update the categories table
      */    public function create_table() {
         $charset_collate = $this->wpdb->get_charset_collate();

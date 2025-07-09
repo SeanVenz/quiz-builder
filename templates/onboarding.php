@@ -159,6 +159,30 @@
                 </div>
                 <button type="button" id="copy-php" class="copy-button">📋 Copy PHP Code</button>
             </div>
+
+            <div class="results-section">
+                <h3>📊 How to Display Results</h3>
+                <p style="margin-bottom: 15px; opacity: 0.9;"><strong>Step 1:</strong> Create a new page in your WordPress admin called "Quiz Results"</p>
+                <p style="margin-bottom: 15px; opacity: 0.9;"><strong>Step 2:</strong> Add the shortcode below to that page:</p>
+                
+                <h4 style="margin-bottom: 10px;">For WordPress Gutenberg Editor:</h4>
+                <div class="shortcode-display">
+                    <span id="results-shortcode">[quiz_results]</span>
+                </div>
+                <button type="button" id="copy-results-shortcode" class="copy-button">📋 Copy Results Shortcode</button>
+                
+                <h4 style="margin-top: 25px; margin-bottom: 10px;">For custom PHP themes:</h4>
+                <div class="php-example">
+                    <span id="results-php-code">&lt;?php echo do_shortcode('[quiz_results]'); ?&gt;</span>
+                </div>
+                <button type="button" id="copy-results-php" class="copy-button">📋 Copy Results PHP Code</button>
+                
+                <div style="background: rgba(255,255,255,0.1); border-radius: 6px; padding: 15px; margin: 15px 0;">
+                    <p style="margin: 0; font-size: 14px; opacity: 0.9;">
+                        💡 <strong>Important:</strong> You need to manually create a page called "Quiz Results" and add the <code>[quiz_results]</code> shortcode to it. This page will display the results when users complete your quiz.
+                    </p>
+                </div>
+            </div>
               <div style="background: rgba(255,255,255,0.1); border-radius: 8px; padding: 20px; margin: 20px 0; backdrop-filter: blur(10px);">
                 <h3 style="color: #fff; margin-top: 0;">💡 Pro Tips for Success</h3>
                 <div style="margin-bottom: 15px; line-height: 1.6;">

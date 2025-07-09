@@ -34,52 +34,53 @@ require_once QB_PATH . 'admin/onboarding.php';
 // Register activation hook
 register_activation_hook(__FILE__, 'qb_activate_plugin');
 
+// Register deactivation hook
+register_deactivation_hook(__FILE__, 'qb_deactivate_plugin');
+
 // Add update check
 add_action('plugins_loaded', 'qb_check_for_updates');
 
 /**
- * Check for plugin updates and run necessary updates
+ * Check for plugin updates and run necessary updates - gentler approach
  */
 function qb_check_for_updates() {
     $current_version = get_option('qb_version', '0');
     if (version_compare($current_version, QB_VERSION, '<')) {
         qb_create_database_tables();
         
-        // Update settings table
+        // Update settings table - gentler approach
         require_once plugin_dir_path(__FILE__) . 'includes/db/class-quiz-settings-db.php';
         $settings_db = new QB_Quiz_Settings_DB();
-        $settings_db->update_table();
+        if (!$settings_db->table_exists()) {
+            $settings_db->update_table();
+        }
         
-        // Create or update categories table
+        // Create or update categories table - gentler approach
         require_once plugin_dir_path(__FILE__) . 'includes/db/class-categories-db.php';
         $categories_db = new QB_Categories_DB();
-        $categories_db->create_table();
+        if (!$categories_db->table_exists()) {
+            $categories_db->create_table();
+        }
         
         update_option('qb_version', QB_VERSION);
     }
 }
 
 /**
- * Plugin activation function
+ * Plugin activation function - gentler database handling
  */
 function qb_activate_plugin() {
-    // Create base tables first
+    // Create base tables if they don't exist
     qb_create_database_tables();
     
-    // Create or update settings table
+    // Create or update settings table - gentler approach
     require_once plugin_dir_path(__FILE__) . 'includes/db/class-quiz-settings-db.php';
     $settings_db = new QB_Quiz_Settings_DB();
     
-    // Force table recreation
-    global $wpdb;
-    $table_name = $wpdb->prefix . 'qb_quiz_settings';
-    // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange, WordPress.DB.PreparedSQL.InterpolatedNotPrepared 
-    $wpdb->query("DROP TABLE IF EXISTS $table_name");
-    
-    // Create fresh table
+    // Only create table if it doesn't exist (no forced recreation)
     $settings_db->update_table();
     
-    // Create or update categories table
+    // Create or update categories table - gentler approach
     require_once plugin_dir_path(__FILE__) . 'includes/db/class-categories-db.php';
     $categories_db = new QB_Categories_DB();
     $categories_db->create_table();
@@ -95,6 +96,21 @@ function qb_activate_plugin() {
     
     // Clear any cached data
     wp_cache_flush();
+    
+    // Flush rewrite rules to ensure custom URLs work
+    // This is crucial for quiz-results URLs to work properly
+    flush_rewrite_rules();
+}
+
+/**
+ * Plugin deactivation function
+ */
+function qb_deactivate_plugin() {
+    // Flush rewrite rules to clean up custom URLs
+    flush_rewrite_rules();
+    
+    // Clear any scheduled events
+    wp_clear_scheduled_hook('qb_cleanup_temp_data');
 }
 
 /**
@@ -132,4 +148,55 @@ function qb_check_fresh_installation_redirect() {
             exit;
         }
     }
+}
+
+/**
+ * Add admin notice for permalink flushing if needed
+ */
+add_action('admin_notices', 'qb_check_permalink_flush_notice');
+
+function qb_check_permalink_flush_notice() {
+    // Only show to administrators
+    if (!current_user_can('manage_options')) {
+        return;
+    }
+    
+    // Check if we're on a Quiz Builder page
+    // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+    $current_page = isset($_GET['page']) ? sanitize_text_field(wp_unslash($_GET['page'])) : '';
+    if (strpos($current_page, 'qb-') !== 0 && strpos($current_page, 'quiz-') !== 0) {
+        return;
+    }
+    
+    // Check if rewrite rules are properly set
+    $rules = get_option('rewrite_rules');
+    if (!$rules || !isset($rules['^quiz-results/([^/]+)/?$'])) {
+        echo '<div class="notice notice-warning is-dismissible">';
+        echo '<p><strong>Quiz Builder:</strong> If quiz results are not displaying correctly, please ';
+        echo '<a href="' . esc_url(admin_url('options-permalink.php')) . '">refresh your permalinks</a> ';
+        echo 'by going to Settings > Permalinks and clicking "Save Changes".</p>';
+        echo '</div>';
+    }
+}
+
+/**
+ * Add a manual flush function for troubleshooting
+ */
+add_action('wp_ajax_qb_flush_rewrite_rules', 'qb_manual_flush_rewrite_rules');
+
+function qb_manual_flush_rewrite_rules() {
+    // Check permissions
+    if (!current_user_can('manage_options')) {
+        wp_die('Unauthorized');
+    }
+    
+    // Check nonce
+    if (!isset($_POST['nonce']) || !wp_verify_nonce(sanitize_text_field(wp_unslash($_POST['nonce'])), 'qb_flush_rules')) {
+        wp_die('Invalid nonce');
+    }
+    
+    // Flush rewrite rules
+    flush_rewrite_rules();
+    
+    wp_send_json_success('Rewrite rules flushed successfully!');
 }

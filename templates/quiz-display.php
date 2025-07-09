@@ -19,7 +19,13 @@ function qb_get_quiz_display($quiz, $questions, $options, $settings) {
     }
 
     // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Nonce field is output for form security.
-    $output .= '<form method="post" class="quiz-form" id="quiz-form-' . esc_attr($quiz->id) . '">';
+    $current_url = get_permalink();
+    if (!$current_url) {
+        // Safely get the current URL as fallback
+        $request_uri = isset($_SERVER['REQUEST_URI']) ? sanitize_text_field(wp_unslash($_SERVER['REQUEST_URI'])) : '';
+        $current_url = !empty($request_uri) ? home_url($request_uri) : home_url();
+    }
+    $output .= '<form method="post" action="' . esc_url($current_url) . '" class="quiz-form" id="quiz-form-' . esc_attr($quiz->id) . '">';
     // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Nonce field is output for form security.
     $output .= wp_nonce_field('qb_quiz_submission', 'qb_quiz_nonce', true, false);
     $output .= '<input type="hidden" name="action" value="qb_handle_quiz_submission">';
@@ -102,27 +108,20 @@ function qb_get_quiz_display($quiz, $questions, $options, $settings) {
     $output .= '<script>
     document.addEventListener("DOMContentLoaded", function() {
         if (typeof jQuery === "undefined") {
-            console.error("jQuery is not loaded!");
             return;
         }
 
         (function($) {
             // Debug: Log all questions and their required status
-            console.log("=== QUIZ DEBUG INFO ===");
             $(".question").each(function() {
                 var $q = $(this);
                 var qId = $q.data("question-id");
                 var isRequired = $q.data("required");
                 var hasRequiredInputs = $q.find("input[required]").length;
-                console.log("Question " + qId + ":", {
-                    "data-required": isRequired,
-                    "has required inputs": hasRequiredInputs,
-                    "question element": $q[0]
-                });
+
             });
-            console.log("=== END DEBUG INFO ===");            // Function to validate required questions on current page
+            // Function to validate required questions on current page
             function validateCurrentPage() {
-                console.log("=== VALIDATION START ===");
                 var hasErrors = false;
                 var errorMessages = [];
                 
@@ -136,7 +135,6 @@ function qb_get_quiz_display($quiz, $questions, $options, $settings) {
                 
                 // Count total required questions on this page
                 var totalRequired = $(".question[data-required=\"true\"]").length;
-                console.log("Total required questions on this page:", totalRequired);
                 
                 // Check each required question on current page
                 $(".question[data-required=\"true\"]").each(function() {
@@ -144,7 +142,6 @@ function qb_get_quiz_display($quiz, $questions, $options, $settings) {
                     var questionId = $question.data("question-id");
                     var isAnswered = $question.find("input[type=\"radio\"]:checked").length > 0;
                     
-                    console.log("Question " + questionId + ": required=true, answered=" + isAnswered);
                     
                     if (!isAnswered) {
                         hasErrors = true;
@@ -160,17 +157,14 @@ function qb_get_quiz_display($quiz, $questions, $options, $settings) {
                         $question.append(errorMsg);
                         
                         errorMessages.push(questionText);
-                        console.log("Added error for question " + questionId);
                     }
                 });
                 
-                console.log("Validation result: hasErrors=" + hasErrors + ", errorCount=" + errorMessages.length);
                 
                 if (hasErrors) {
                     // Scroll to first error
                     var firstError = $(".question.error-required").first();
                     if (firstError.length) {
-                        console.log("Scrolling to first error");
                         $("html, body").animate({
                             scrollTop: firstError.offset().top - 100
                         }, 500);
@@ -179,10 +173,8 @@ function qb_get_quiz_display($quiz, $questions, $options, $settings) {
                     // Show general error message
                     var generalError = $("<div class=\"general-error-message\" style=\"color: #e74c3c; font-size: 16px; font-weight: bold; margin: 20px 0; padding: 15px; background: #ffeaea; border: 1px solid #e74c3c; border-radius: 4px; text-align: center;\">Please answer all required questions (marked with *) before proceeding.</div>");
                     $(".quiz-container").prepend(generalError);
-                    console.log("Added general error message");
                 }
                 
-                console.log("=== VALIDATION END ===");
                 return !hasErrors;
             }// Handle Next button clicks (for paginated quizzes)
             $(".next-button").on("click", function(e) {
@@ -200,32 +192,121 @@ function qb_get_quiz_display($quiz, $questions, $options, $settings) {
             $(".submit-button").on("click", function(e) {
                 e.preventDefault();
                 
-                console.log("Submit button clicked, validating...");
                 
                 if (!validateCurrentPage()) {
-                    console.log("Validation failed, preventing submission");
                     return false;
                 }
                 
-                console.log("Validation passed, preparing form submission");
                 
                 // Remove any existing error messages if validation passes
                 $(".general-error-message").remove();
                 
                 // Add all saved answers to the form before submission
                 addSavedAnswersToForm($(".quiz-form"));
-                console.log("Form submitting with all saved answers");
                 
                 // Clear localStorage after adding answers to form
                 localStorage.removeItem(storageKey);
                 
-                // Submit the form programmatically
-                $(".quiz-form")[0].submit();
-            });            // Keep the form submit handler as a backup, but it should rarely be used now
+                // Change the button type to submit and then trigger the form submission
+                var $form = $(".quiz-form");
+                var $submitButton = $(this);
+                
+                // Disable the button to prevent double submission
+                $submitButton.prop("disabled", true).text("Submitting...");
+                
+                // Try multiple submission methods for better compatibility
+                var submissionMethods = [
+                    // Method 1: Create temporary submit button
+                    function() {
+                        var $tempSubmit = $("<input>")
+                            .attr("type", "submit")
+                            .attr("name", "quiz_submit")
+                            .attr("value", "Submit")
+                            .hide()
+                            .appendTo($form);
+                        
+                        setTimeout(function() {
+                            $tempSubmit[0].click();
+                        }, 100);
+                    },
+                    
+                    // Method 2: Direct form submission
+                    function() {
+                        setTimeout(function() {
+                            $form[0].submit();
+                        }, 500);
+                    },
+                    
+                    // Method 3: AJAX fallback
+                    function() {
+                        setTimeout(function() {
+                            submitViaAjax($form);
+                        }, 1000);
+                    }
+                ];
+                
+                // Try the first method
+                submissionMethods[0]();
+                
+                // Set up fallbacks
+                setTimeout(function() {
+                    if ($submitButton.prop("disabled")) {
+                        submissionMethods[1]();
+                    }
+                }, 600);
+                
+                setTimeout(function() {
+                    if ($submitButton.prop("disabled")) {
+                        submissionMethods[2]();
+                    }
+                }, 1500);
+            });
+            
+            // AJAX submission function
+            function submitViaAjax($form) {
+                
+                var formData = new FormData($form[0]);
+                formData.append("action", "qb_submit_quiz");
+                
+                $.ajax({
+                    url: "' . esc_js(admin_url('admin-ajax.php')) . '",
+                    type: "POST",
+                    data: formData,
+                    processData: false,
+                    contentType: false,
+                    success: function(response) {
+                        if (response.success && response.data.redirect_url) {
+                            window.location.href = response.data.redirect_url;
+                        } else {
+                            $(".submit-button").prop("disabled", false).text("Submit Quiz");
+                            alert("There was an error submitting the quiz. Please try again.");
+                        }
+                    },
+                    error: function(xhr, status, error) {
+                        $(".submit-button").prop("disabled", false).text("Submit Quiz");
+                        alert("There was an error submitting the quiz. Please try again.");
+                    }
+                });
+            }            // Keep the form submit handler as a backup, but it should rarely be used now
             $(".quiz-form").on("submit", function(e) {
-                console.log("Form submit event triggered (backup handler)");
-                // This should not normally run since we are using button click handlers now
-                // But keeping it as a safety net
+                
+                // If this is triggered by our temporary submit button, allow it
+                if ($(this).find("input[name=\"quiz_submit\"]").length > 0) {
+                    return true;
+                }
+                
+                // Otherwise prevent default and use our validation
+                e.preventDefault();
+                
+                if (!validateCurrentPage()) {
+                    return false;
+                }
+                
+                // Add saved answers and allow submission
+                addSavedAnswersToForm($(this));
+                localStorage.removeItem(storageKey);
+                
+                // Re-trigger the submit
                 return true;
             });
             
@@ -242,15 +323,11 @@ function qb_get_quiz_display($quiz, $questions, $options, $settings) {
                 }
             });
             
-            // Debug check
-            console.log("Quiz script initialized");
             
             // Get quiz ID and create storage key
             var quizId = "' . esc_js($quiz->id) . '";
             var storageKey = "quiz_" + quizId + "_answers";
             
-            console.log("Quiz ID:", quizId);
-            console.log("Storage key:", storageKey);
             
             // Save answers to localStorage
             function saveAnswer(questionId, optionId) {
@@ -258,10 +335,7 @@ function qb_get_quiz_display($quiz, $questions, $options, $settings) {
                     var answers = JSON.parse(localStorage.getItem(storageKey) || "{}");
                     answers[questionId] = optionId;
                     localStorage.setItem(storageKey, JSON.stringify(answers));
-                    console.log("Saved answer:", questionId, optionId);
-                    console.log("Current answers:", answers);
                 } catch (e) {
-                    console.error("Error saving answer:", e);
                 }
             }
             
@@ -269,18 +343,15 @@ function qb_get_quiz_display($quiz, $questions, $options, $settings) {
             function loadAnswers() {
                 try {
                     var answers = JSON.parse(localStorage.getItem(storageKey) || "{}");
-                    console.log("Loading answers:", answers);
                     
                     Object.keys(answers).forEach(function(questionId) {
                         var optionId = answers[questionId];
                         var input = document.querySelector(\'input[name="question_\' + questionId + \'"][value="\' + optionId + \'"]\');
                         if (input) {
                             input.checked = true;
-                            console.log("Restored answer for question:", questionId);
                         }
                     });
                 } catch (e) {
-                    console.error("Error loading answers:", e);
                 }
             }
 
@@ -288,7 +359,6 @@ function qb_get_quiz_display($quiz, $questions, $options, $settings) {
             function addSavedAnswersToForm($form) {
                 try {
                     var answers = JSON.parse(localStorage.getItem(storageKey) || "{}");
-                    console.log("Adding saved answers to form:", answers);
                     
                     // Remove any existing hidden inputs for answers
                     $form.find(".saved-answer-input").remove();
@@ -301,10 +371,8 @@ function qb_get_quiz_display($quiz, $questions, $options, $settings) {
                             .attr("name", "question_" + questionId)
                             .attr("value", optionId);
                         $form.append(hiddenInput);
-                        console.log("Added hidden input for question:", questionId, "option:", optionId);
                     });
                 } catch (e) {
-                    console.error("Error adding saved answers to form:", e);
                 }
             }
             
@@ -312,13 +380,11 @@ function qb_get_quiz_display($quiz, $questions, $options, $settings) {
             $(document).on("change", ".question input[type=radio]", function() {
                 var questionId = $(this).closest(".question").data("question-id");
                 var optionId = $(this).val();
-                console.log("Option changed - Question:", questionId, "Option:", optionId);
                 saveAnswer(questionId, optionId);            });
               // Load saved answers when page loads
             loadAnswers();
               // Handle Previous button navigation (no validation needed)
             $(".prev-button").click(function() {
-                console.log("Previous button clicked, answers saved in localStorage");
                 // Previous navigation does not need validation, so it works as normal
             });
             
